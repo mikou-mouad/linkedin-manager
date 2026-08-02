@@ -5,7 +5,7 @@ import azure.functions as func
 
 from shared import storage
 from shared import linkedin_auth
-from shared.models import Post, STATUS_SCHEDULED, STATUS_PUBLISHED, STATUS_FAILED
+from shared.models import Post, STATUS_DRAFT, STATUS_SCHEDULED, STATUS_PUBLISHED, STATUS_FAILED
 
 app = func.FunctionApp()
 
@@ -109,30 +109,50 @@ def upload_post_image(req: func.HttpRequest) -> func.HttpResponse:
 
 
 # ---------------------------------------------------------------------------
-# Scheduler: publishes anything due, once a day
+# Manual publish / cancel — no auto-scheduler. LinkedIn's public API has no
+# "publish at future time" parameter, so scheduling is a calendar convenience
+# only; you actually publish by clicking "Publish Now" when ready.
 # ---------------------------------------------------------------------------
 
-@app.timer_trigger(schedule="0 0 8 * * *", arg_name="timer", run_on_startup=False)
-def publish_due_posts(timer: func.TimerRequest) -> None:
-    """Runs daily at 08:00 UTC. Adjust the CRON schedule as needed."""
-    due_posts = storage.list_due_posts()
-    logging.info(f"Found {len(due_posts)} post(s) due for publishing.")
+@app.route(route="posts/{year_month}/{post_id}/publish", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+def publish_post_now(req: func.HttpRequest) -> func.HttpResponse:
+    year_month = req.route_params.get("year_month")
+    post_id = req.route_params.get("post_id")
+    post = storage.get_post(post_id, year_month)
+    if not post:
+        return func.HttpResponse("Post not found", status_code=404)
 
-    for post in due_posts:
-        try:
-            image_bytes = None
-            if post.image_blob_name:
-                image_bytes = storage.download_image_bytes(post.image_blob_name)
+    try:
+        image_bytes = None
+        if post.image_blob_name:
+            image_bytes = storage.download_image_bytes(post.image_blob_name)
 
-            post_urn = linkedin_auth.publish_post(post.copy_text, image_bytes)
+        post_urn = linkedin_auth.publish_post(post.copy_text, image_bytes)
 
-            post.status = STATUS_PUBLISHED
-            post.linkedin_post_urn = post_urn
-            storage.save_post(post)
-            logging.info(f"Published post {post.id} -> {post_urn}")
+        post.status = STATUS_PUBLISHED
+        post.linkedin_post_urn = post_urn
+        post.error_message = None
+        storage.save_post(post)
+        return func.HttpResponse(json.dumps(post.__dict__), mimetype="application/json")
 
-        except Exception as e:
-            post.status = STATUS_FAILED
-            post.error_message = str(e)
-            storage.save_post(post)
-            logging.error(f"Failed to publish post {post.id}: {e}")
+    except Exception as e:
+        post.status = STATUS_FAILED
+        post.error_message = str(e)
+        storage.save_post(post)
+        logging.error(f"Failed to publish post {post.id}: {e}")
+        return func.HttpResponse(json.dumps(post.__dict__), mimetype="application/json", status_code=500)
+
+
+@app.route(route="posts/{year_month}/{post_id}/cancel", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+def cancel_scheduled_post(req: func.HttpRequest) -> func.HttpResponse:
+    """Reverts a scheduled post back to draft - nothing was actually 'pending' to
+    stop since there's no auto-scheduler, this just takes it out of the scheduled state."""
+    year_month = req.route_params.get("year_month")
+    post_id = req.route_params.get("post_id")
+    post = storage.get_post(post_id, year_month)
+    if not post:
+        return func.HttpResponse("Post not found", status_code=404)
+
+    post.status = STATUS_DRAFT
+    storage.save_post(post)
+    return func.HttpResponse(json.dumps(post.__dict__), mimetype="application/json")

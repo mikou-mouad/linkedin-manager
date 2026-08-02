@@ -52,27 +52,6 @@ def list_posts_for_month(year_month: str) -> list[Post]:
     return [Post.from_entity(e) for e in entities]
 
 
-def list_due_posts(as_of: datetime | None = None) -> list[Post]:
-    """Scan the current + previous month partitions for anything scheduled and due."""
-    as_of = as_of or datetime.utcnow()
-    client = _table_client(SCHEDULE_TABLE_NAME)
-    due = []
-    for months_back in (0, 1):
-        target = as_of.replace(day=1) - timedelta(days=30 * months_back)
-        partition = target.strftime("%Y-%m")
-        entities = client.query_entities(
-            f"PartitionKey eq '{partition}' and status eq 'scheduled'"
-        )
-        for e in entities:
-            post = Post.from_entity(e)
-            scheduled_dt = datetime.fromisoformat(
-                f"{post.scheduled_date}T{post.scheduled_time}:00"
-            )
-            if scheduled_dt <= as_of:
-                due.append(post)
-    return due
-
-
 def delete_post(post_id: str, month_partition: str) -> None:
     client = _table_client(SCHEDULE_TABLE_NAME)
     client.delete_entity(partition_key=month_partition, row_key=post_id)

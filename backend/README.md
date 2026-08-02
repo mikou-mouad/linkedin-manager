@@ -37,23 +37,25 @@ curl -X POST http://localhost:7071/api/posts/2026-08/<post_id>/image \
   --data-binary @/path/to/image.jpg
 ```
 
-## Manually trigger the publisher (for testing)
-The timer function runs daily at 08:00 UTC. To test it immediately without
-waiting, you can temporarily call `publish_due_posts_logic` from a throwaway
-HTTP route, or use the Core Tools timer test flag:
+## Publish / cancel a post
+There's no auto-scheduler — LinkedIn's public API has no "publish at a future
+time" parameter, so scheduling is a calendar convenience only. You publish by
+calling this when ready (or clicking "Publish Now" in the UI):
 ```bash
-func start --enableAuth false
-# then in another terminal:
-curl -X POST http://localhost:7071/admin/functions/publish_due_posts \
-  -H "Content-Type: application/json" -d '{"input": ""}'
+curl -X POST http://localhost:7071/api/posts/2026-08/<post_id>/publish
+```
+
+To cancel a scheduled post (reverts it to draft):
+```bash
+curl -X POST http://localhost:7071/api/posts/2026-08/<post_id>/cancel
 ```
 
 ## Notes / known gaps to fill in as you iterate
 - `LINKEDIN_VERSION` in `shared/linkedin_auth.py` should be checked against
   LinkedIn's current API version docs before going live — it's a guess/placeholder
   based on the "YYYYMM" convention LinkedIn uses.
-- No auth on the frontend-facing endpoints beyond the Function key — fine for
-  personal single-user use, but don't expose this publicly without adding
-  proper auth if you ever open it up.
-- Error handling in the timer function marks a post `failed` and logs it, but
-  doesn't retry or alert you — consider adding an email/Teams notification on failure.
+- Routes are anonymous-auth since the Static Web App linkage handles trust for
+  browser calls — don't expose this Function App's URL publicly without adding
+  auth if you ever call it from anywhere else.
+- No retry/notification on publish failure — a failed "Publish Now" just shows
+  the error in the UI; nothing alerts you if you don't check back.

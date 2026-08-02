@@ -33,6 +33,11 @@ function renderPosts(posts) {
           <span class="status status-${post.status}">${post.status}</span>
           <input type="file" accept="image/*" onchange="uploadImage('${post.id}','${post.scheduled_date.slice(0,7)}', this.files[0])">
         </div>
+        <div class="actions">
+          <button onclick="publishNow('${post.id}','${post.scheduled_date.slice(0,7)}')" ${post.status === 'published' ? 'disabled' : ''}>Publish Now</button>
+          <button onclick="cancelPost('${post.id}','${post.scheduled_date.slice(0,7)}')" ${post.status !== 'scheduled' ? 'disabled' : ''}>Cancel</button>
+        </div>
+        ${post.status === 'failed' && post.error_message ? `<div class="error-msg">${post.error_message}</div>` : ''}
       </div>
     `;
     container.appendChild(card);
@@ -54,6 +59,20 @@ async function uploadImage(postId, yearMonth, file) {
     headers: { "Content-Type": file.type },
     body: file,
   });
+  loadPosts();
+}
+
+async function publishNow(postId, yearMonth) {
+  if (!confirm("Publish this post to LinkedIn now? This happens immediately and can't be undone.")) return;
+  const res = await fetch(apiUrl(`/posts/${yearMonth}/${postId}/publish`), { method: "POST" });
+  if (!res.ok) {
+    alert("Publish failed - check the post's error message after refresh.");
+  }
+  loadPosts();
+}
+
+async function cancelPost(postId, yearMonth) {
+  await fetch(apiUrl(`/posts/${yearMonth}/${postId}/cancel`), { method: "POST" });
   loadPosts();
 }
 
