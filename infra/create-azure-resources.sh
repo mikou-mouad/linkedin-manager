@@ -71,6 +71,12 @@ az role assignment create --assignee "$PRINCIPAL_ID" --role "Key Vault Secrets U
 # plus the storage container/table names the code expects.
 az functionapp config appsettings set --name "$FUNCAPP" --resource-group "$RG" --settings "LINKEDIN_CLIENT_ID=@Microsoft.KeyVault(VaultName=$KEYVAULT;SecretName=ClientID)" "LINKEDIN_CLIENT_SECRET=@Microsoft.KeyVault(VaultName=$KEYVAULT;SecretName=ClientSecret)" "LINKEDIN_REDIRECT_URI=https://$FUNCAPP.azurewebsites.net/api/auth/callback" "IMAGE_CONTAINER_NAME=post-images" "SCHEDULE_TABLE_NAME=PostSchedule" "TOKEN_TABLE_NAME=AuthTokens"
 
+# 9. Link the Function App as the Static Web App's backend, so the frontend can
+# call relative /api/* paths and Azure handles the trust between them - no
+# function keys needed in the browser.
+FUNCAPP_ID=$(az functionapp show --name "$FUNCAPP" --resource-group "$RG" --query id -o tsv)
+az staticwebapp backends link --name "$SWA" --resource-group "$RG" --backend-resource-id "$FUNCAPP_ID" --backend-region "$LOCATION"
+
 echo ""
 echo "Done. Resources created:"
 echo "  Storage account: $STORAGE"

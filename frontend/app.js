@@ -1,6 +1,5 @@
 function apiUrl(path) {
-  const url = `${API_BASE_URL}${path}`;
-  return FUNCTION_KEY ? `${url}${path.includes("?") ? "&" : "?"}code=${FUNCTION_KEY}` : url;
+  return `${API_BASE_URL}${path}`;
 }
 
 document.getElementById("monthPicker").value = new Date().toISOString().slice(0, 7);
