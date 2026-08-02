@@ -3,7 +3,7 @@ const { BlobServiceClient } = require("@azure/storage-blob");
 const { toEntity, fromEntity } = require("./models");
 
 function connStr() {
-  return process.env.AzureWebJobsStorage;
+  return process.env.LINKEDIN_STORAGE_CONNECTION_STRING;
 }
 
 const SCHEDULE_TABLE_NAME = process.env.SCHEDULE_TABLE_NAME || "PostSchedule";

@@ -17,7 +17,7 @@ You'll need a local `local.settings.json` (not committed) with:
   "IsEncrypted": false,
   "Values": {
     "FUNCTIONS_WORKER_RUNTIME": "node",
-    "AzureWebJobsStorage": "<connection string>",
+    "LINKEDIN_STORAGE_CONNECTION_STRING": "<connection string>",
     "LINKEDIN_CLIENT_ID": "...",
     "LINKEDIN_CLIENT_SECRET": "...",
     "LINKEDIN_REDIRECT_URI": "http://localhost:7071/api/auth/callback",
@@ -27,6 +27,10 @@ You'll need a local `local.settings.json` (not committed) with:
   }
 }
 ```
+Note: `AzureWebJobsStorage` (and anything prefixed `AzureWebJobs*`) is a
+**reserved app setting name on Managed Functions** - the platform manages its
+own internal storage account under that name and won't let you override it.
+Our own storage connection lives under `LINKEDIN_STORAGE_CONNECTION_STRING` instead.
 
 ## Auth model
 All routes are `authLevel: "anonymous"` — trust is enforced one layer up, by
