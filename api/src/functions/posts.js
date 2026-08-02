@@ -78,10 +78,28 @@ app.http("uploadPostImage", {
 
     const contentType = request.headers.get("content-type") || "image/jpeg";
     const bodyBuffer = Buffer.from(await request.arrayBuffer());
-    const blobName = `${postId}.jpg`;
-    await storage.uploadImage(blobName, bodyBuffer, contentType);
+    const blobName = await storage.uploadUsedImageForPost(postId, bodyBuffer, contentType);
 
     post.imageBlobName = blobName;
+    await storage.savePost(post);
+    return json(200, post);
+  },
+});
+
+app.http("attachExistingImage", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "posts/{yearMonth}/{postId}/attach-image",
+  handler: async (request, context) => {
+    const { yearMonth, postId } = request.params;
+    const post = await storage.getPost(postId, yearMonth);
+    if (!post) return { status: 404, body: "Post not found" };
+
+    const body = await request.json();
+    if (!body.blobName) return { status: 400, body: "Missing 'blobName'" };
+
+    const usedBlobName = await storage.moveImageToUsed(body.blobName, postId);
+    post.imageBlobName = usedBlobName;
     await storage.savePost(post);
     return json(200, post);
   },

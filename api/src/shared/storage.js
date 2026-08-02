@@ -59,23 +59,87 @@ async function deletePost(postId, monthPartition) {
 }
 
 // ---------- Images ----------
+// Images live under two virtual folders (blob name prefixes) in the same
+// container: "new/" is the unassigned pool - the only thing checked when
+// matching a fresh image to a post - and "used/" is anything already tied
+// to a post, permanently excluded from future matching passes.
 
-async function uploadImage(blobName, data, contentType = "image/jpeg") {
+const NEW_PREFIX = "new/";
+const USED_PREFIX = "used/";
+
+function containerClient() {
   const service = blobService();
-  const container = service.getContainerClient(IMAGE_CONTAINER_NAME);
+  return service.getContainerClient(IMAGE_CONTAINER_NAME);
+}
+
+async function ensureContainer(container) {
   try {
     await container.createIfNotExists();
   } catch (e) {
-    // ignore
+    // ignore - already exists
   }
+}
+
+async function uploadImage(blobName, data, contentType = "image/jpeg") {
+  const container = containerClient();
+  await ensureContainer(container);
   const blockBlob = container.getBlockBlobClient(blobName);
   await blockBlob.uploadData(data, { blobHTTPHeaders: { blobContentType: contentType } });
   return blobName;
 }
 
+/** Add an image to the unassigned pool (new/), for later AI/manual matching. */
+async function addImageToPool(fileName, data, contentType = "image/jpeg") {
+  const blobName = `${NEW_PREFIX}${fileName}`;
+  await uploadImage(blobName, data, contentType);
+  return blobName;
+}
+
+/** List images in the unassigned pool - this is the only set checked when matching. */
+async function listPoolImages() {
+  const container = containerClient();
+  await ensureContainer(container);
+  const results = [];
+  for await (const blob of container.listBlobsFlat({ prefix: NEW_PREFIX })) {
+    results.push({
+      blobName: blob.name,
+      fileName: blob.name.slice(NEW_PREFIX.length),
+      contentType: blob.properties.contentType,
+      sizeBytes: blob.properties.contentLength,
+    });
+  }
+  return results;
+}
+
+/**
+ * Move an image from the pool (new/) to used/, tying it to a specific post.
+ * Blob storage has no rename, so this copies then deletes the source.
+ */
+async function moveImageToUsed(poolBlobName, postId) {
+  const container = containerClient();
+  const ext = poolBlobName.includes(".") ? poolBlobName.slice(poolBlobName.lastIndexOf(".")) : ".jpg";
+  const destBlobName = `${USED_PREFIX}${postId}${ext}`;
+
+  const sourceClient = container.getBlockBlobClient(poolBlobName);
+  const destClient = container.getBlockBlobClient(destBlobName);
+
+  const copyPoller = await destClient.beginCopyFromURL(sourceClient.url);
+  await copyPoller.pollUntilDone();
+  await sourceClient.deleteIfExists();
+
+  return destBlobName;
+}
+
+/** Directly upload an image already tied to a specific post (manual upload flow). */
+async function uploadUsedImageForPost(postId, data, contentType = "image/jpeg") {
+  const ext = contentType === "image/png" ? ".png" : ".jpg";
+  const blobName = `${USED_PREFIX}${postId}${ext}`;
+  await uploadImage(blobName, data, contentType);
+  return blobName;
+}
+
 async function downloadImageBytes(blobName) {
-  const service = blobService();
-  const container = service.getContainerClient(IMAGE_CONTAINER_NAME);
+  const container = containerClient();
   const blockBlob = container.getBlockBlobClient(blobName);
   const downloadResponse = await blockBlob.download();
   return await streamToBuffer(downloadResponse.readableStreamBody);
@@ -123,6 +187,10 @@ module.exports = {
   listPostsForMonth,
   deletePost,
   uploadImage,
+  addImageToPool,
+  listPoolImages,
+  moveImageToUsed,
+  uploadUsedImageForPost,
   downloadImageBytes,
   saveTokens,
   getTokens,
