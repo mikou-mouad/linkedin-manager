@@ -39,7 +39,7 @@ def auth_callback(req: func.HttpRequest) -> func.HttpResponse:
 # Post CRUD
 # ---------------------------------------------------------------------------
 
-@app.route(route="posts/{year_month}", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
+@app.route(route="posts/{year_month}", methods=["GET"], auth_level=func.AuthLevel.FUNCTION)
 def list_posts(req: func.HttpRequest) -> func.HttpResponse:
     year_month = req.route_params.get("year_month")
     posts = storage.list_posts_for_month(year_month)
@@ -49,7 +49,7 @@ def list_posts(req: func.HttpRequest) -> func.HttpResponse:
     )
 
 
-@app.route(route="posts", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+@app.route(route="posts", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
 def create_post(req: func.HttpRequest) -> func.HttpResponse:
     body = req.get_json()
     post = Post(
@@ -64,7 +64,7 @@ def create_post(req: func.HttpRequest) -> func.HttpResponse:
     return func.HttpResponse(json.dumps(post.__dict__), mimetype="application/json", status_code=201)
 
 
-@app.route(route="posts/{year_month}/{post_id}", methods=["PUT"], auth_level=func.AuthLevel.ANONYMOUS)
+@app.route(route="posts/{year_month}/{post_id}", methods=["PUT"], auth_level=func.AuthLevel.FUNCTION)
 def update_post(req: func.HttpRequest) -> func.HttpResponse:
     year_month = req.route_params.get("year_month")
     post_id = req.route_params.get("post_id")
@@ -82,7 +82,7 @@ def update_post(req: func.HttpRequest) -> func.HttpResponse:
     return func.HttpResponse(json.dumps(existing.__dict__), mimetype="application/json")
 
 
-@app.route(route="posts/{year_month}/{post_id}", methods=["DELETE"], auth_level=func.AuthLevel.ANONYMOUS)
+@app.route(route="posts/{year_month}/{post_id}", methods=["DELETE"], auth_level=func.AuthLevel.FUNCTION)
 def delete_post(req: func.HttpRequest) -> func.HttpResponse:
     year_month = req.route_params.get("year_month")
     post_id = req.route_params.get("post_id")
@@ -90,7 +90,7 @@ def delete_post(req: func.HttpRequest) -> func.HttpResponse:
     return func.HttpResponse(status_code=204)
 
 
-@app.route(route="posts/{year_month}/{post_id}/image", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+@app.route(route="posts/{year_month}/{post_id}/image", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
 def upload_post_image(req: func.HttpRequest) -> func.HttpResponse:
     """Upload/replace the image for a specific post. Expects raw image bytes in the body."""
     year_month = req.route_params.get("year_month")
@@ -114,7 +114,7 @@ def upload_post_image(req: func.HttpRequest) -> func.HttpResponse:
 # only; you actually publish by clicking "Publish Now" when ready.
 # ---------------------------------------------------------------------------
 
-@app.route(route="posts/{year_month}/{post_id}/publish", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+@app.route(route="posts/{year_month}/{post_id}/publish", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
 def publish_post_now(req: func.HttpRequest) -> func.HttpResponse:
     year_month = req.route_params.get("year_month")
     post_id = req.route_params.get("post_id")
@@ -143,7 +143,7 @@ def publish_post_now(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(json.dumps(post.__dict__), mimetype="application/json", status_code=500)
 
 
-@app.route(route="posts/{year_month}/{post_id}/cancel", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
+@app.route(route="posts/{year_month}/{post_id}/cancel", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
 def cancel_scheduled_post(req: func.HttpRequest) -> func.HttpResponse:
     """Reverts a scheduled post back to draft - nothing was actually 'pending' to
     stop since there's no auto-scheduler, this just takes it out of the scheduled state."""
