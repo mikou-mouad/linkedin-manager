@@ -78,8 +78,10 @@ az staticwebapp appsettings set --name "$SWA" --setting-names "LINKEDIN_STORAGE_
 #
 #   az staticwebapp users invite --name "$SWA" --resource-group "$RG" \
 #     --authentication-provider aad --user-details "<your-email>" \
-#     --role "member" --invitation-expiration-in-hours 168 \
-#     --domain "https://$SWA_HOSTNAME"
+#     --roles "member" --invitation-expiration-in-hours 168 \
+#     --domain "$SWA_HOSTNAME"
+#
+# (--domain is the bare hostname, no https:// prefix)
 #
 # It prints an invitation URL - open it once, signed in as yourself, to
 # accept and get the "member" role. staticwebapp.config.json's routes are
