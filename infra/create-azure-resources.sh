@@ -44,11 +44,11 @@ az storage table create --account-name "$STORAGE" --name PostSchedule --auth-mod
 # 4. Table for storing LinkedIn OAuth tokens
 az storage table create --account-name "$STORAGE" --name AuthTokens --auth-mode login
 
-# 5. Function App (Python, Consumption/free-eligible plan, Linux)
-# NOTE: Linux Consumption reaches end-of-support Sept 30, 2028. Azure recommends
-# migrating to Flex Consumption eventually — not urgent, revisit before that date.
-# https://learn.microsoft.com/en-us/azure/azure-functions/migration/migrate-plan-consumption-to-flex
-az functionapp create --resource-group "$RG" --consumption-plan-location "$LOCATION" --runtime python --runtime-version 3.11 --functions-version 4 --name "$FUNCAPP" --storage-account "$STORAGE" --os-type Linux --disable-app-insights true
+# 5. Function App (Python, Flex Consumption plan, Linux)
+# Flex Consumption is Azure's recommended serverless plan going forward (Linux
+# Consumption is on a deprecation path, EOL Sept 30, 2028). Still free-tier friendly.
+# App Insights is kept (created automatically alongside the app).
+az functionapp create --resource-group "$RG" --name "$FUNCAPP" --storage-account "$STORAGE" --flexconsumption-location "$LOCATION" --runtime python --runtime-version 3.11
 
 # 6. Static Web App (frontend) — Free tier
 az staticwebapp create --name "$SWA" --resource-group "$RG" --location "$LOCATION" --sku Free
