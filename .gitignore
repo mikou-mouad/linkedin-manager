@@ -1,0 +1,10 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Azure Functions local secrets - NEVER commit this
+local.settings.json
+
+# OS
+.DS_Store
