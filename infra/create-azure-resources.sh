@@ -51,7 +51,12 @@ az storage table create --account-name "$STORAGE" --name AuthTokens --auth-mode 
 az functionapp create --resource-group "$RG" --name "$FUNCAPP" --storage-account "$STORAGE" --flexconsumption-location "$LOCATION" --runtime python --runtime-version 3.11
 
 # 6. Static Web App (frontend) — Free tier
-az staticwebapp create --name "$SWA" --resource-group "$RG" --location "$LOCATION" --sku Free
+# NOTE: Static Web Apps is only available in a short list of regions, and
+# francecentral is NOT one of them (supported: westus2, centralus, eastus2,
+# westeurope, eastasia). Using westeurope here — closest supported region.
+# This is fine even though your other resources are in francecentral; the
+# Static Web App only hosts static frontend files, no data residency concern.
+az staticwebapp create --name "$SWA" --resource-group "$RG" --location westeurope --sku Free
 
 # 7. Give the Function App a managed identity, then let it read your Key Vault secrets via RBAC
 az functionapp identity assign --name "$FUNCAPP" --resource-group "$RG"
