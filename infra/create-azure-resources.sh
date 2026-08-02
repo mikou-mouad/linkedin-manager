@@ -67,6 +67,10 @@ KEYVAULT_ID=$(az keyvault show --name "$KEYVAULT" --resource-group "$RG" --query
 
 az role assignment create --assignee "$PRINCIPAL_ID" --role "Key Vault Secrets User" --scope "$KEYVAULT_ID"
 
+# 8. Configure the Function App's settings — LinkedIn secrets via Key Vault reference,
+# plus the storage container/table names the code expects.
+az functionapp config appsettings set --name "$FUNCAPP" --resource-group "$RG" --settings "LINKEDIN_CLIENT_ID=@Microsoft.KeyVault(VaultName=$KEYVAULT;SecretName=ClientID)" "LINKEDIN_CLIENT_SECRET=@Microsoft.KeyVault(VaultName=$KEYVAULT;SecretName=ClientSecret)" "LINKEDIN_REDIRECT_URI=https://$FUNCAPP.azurewebsites.net/api/auth/callback" "IMAGE_CONTAINER_NAME=post-images" "SCHEDULE_TABLE_NAME=PostSchedule" "TOKEN_TABLE_NAME=AuthTokens"
+
 echo ""
 echo "Done. Resources created:"
 echo "  Storage account: $STORAGE"
