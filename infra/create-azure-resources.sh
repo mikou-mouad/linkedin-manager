@@ -5,7 +5,7 @@ set -e
 # Fill this in: 3-5 lowercase letters/numbers unique to you (e.g. initials + a number)
 # Storage account names must be globally unique across ALL of Azure, lowercase, no dashes.
 # ---------------------------------------------------------------------------
-SUFFIX="changeme123"
+SUFFIX="cdf"
 
 # --- Point to the right subscription (from your earlier screenshot) ---
 az account set --subscription "bddbe6fb-3d67-40ea-959c-45f1ba52510d"
@@ -14,6 +14,11 @@ az account set --subscription "bddbe6fb-3d67-40ea-959c-45f1ba52510d"
 RG="linkedin-manager"
 LOCATION="francecentral"
 KEYVAULT="linked-manager"
+
+# Your Key Vault was likely created in "Access policy" mode (Azure's default).
+# RBAC role assignments only take effect if the vault's authorization model is RBAC,
+# so switch it over first. Safe to run even if it's already RBAC-enabled.
+az keyvault update --name "$KEYVAULT" --resource-group "$RG" --enable-rbac-authorization true
 
 # --- New resources ---
 STORAGE="linkedinmgr${SUFFIX}"
@@ -45,12 +50,14 @@ az functionapp create --resource-group "$RG" --consumption-plan-location "$LOCAT
 # 6. Static Web App (frontend) — Free tier
 az staticwebapp create --name "$SWA" --resource-group "$RG" --location "$LOCATION" --sku Free
 
-# 7. Give the Function App a managed identity, then let it read your Key Vault secrets
+# 7. Give the Function App a managed identity, then let it read your Key Vault secrets via RBAC
 az functionapp identity assign --name "$FUNCAPP" --resource-group "$RG"
 
 PRINCIPAL_ID=$(az functionapp identity show --name "$FUNCAPP" --resource-group "$RG" --query principalId -o tsv)
 
-az keyvault set-policy --name "$KEYVAULT" --object-id "$PRINCIPAL_ID" --secret-permissions get list
+KEYVAULT_ID=$(az keyvault show --name "$KEYVAULT" --resource-group "$RG" --query id -o tsv)
+
+az role assignment create --assignee "$PRINCIPAL_ID" --role "Key Vault Secrets User" --scope "$KEYVAULT_ID"
 
 echo ""
 echo "Done. Resources created:"
