@@ -63,38 +63,31 @@ SWA_HOSTNAME=$(az staticwebapp show --name "$SWA" --resource-group "$RG" --query
 az staticwebapp appsettings set --name "$SWA" --setting-names "LINKEDIN_STORAGE_CONNECTION_STRING=$STORAGE_CONNECTION_STRING" "LINKEDIN_CLIENT_ID=$LINKEDIN_CLIENT_ID" "LINKEDIN_CLIENT_SECRET=$LINKEDIN_CLIENT_SECRET" "LINKEDIN_REDIRECT_URI=https://$SWA_HOSTNAME/api/auth/callback" "IMAGE_CONTAINER_NAME=post-images" "SCHEDULE_TABLE_NAME=PostSchedule" "TOKEN_TABLE_NAME=AuthTokens"
 
 # ---------------------------------------------------------------------------
-# 7. Tenant-restricted Entra (Azure AD) login, so the login gate only accepts
-# accounts from YOUR organization/tenant - not any Microsoft account.
-# This creates its own app registration + client secret and wires it into the
-# SWA's app settings as AZURE_CLIENT_ID / AZURE_CLIENT_SECRET. The client
-# secret never gets echoed - it's set directly, staying local to this run.
+# 7. Restricting who can access the app.
+#
+# IMPORTANT: A custom Entra (Azure AD) app registration for auth requires the
+# Static Web Apps STANDARD plan - not available on Free. So on Free tier, the
+# only way to restrict access to just yourself (regardless of which Microsoft
+# tenant you sign in from) is SWA's built-in INVITATION system: you invite
+# your own account to a custom role, and staticwebapp.config.json's routes
+# require that role instead of the generic "authenticated" (which would let
+# ANY Microsoft account in, not just you).
+#
+# This step needs to be run once, manually, with YOUR email - it can't be
+# fully scripted generically. Run this yourself after the SWA exists:
+#
+#   az staticwebapp users invite --name "$SWA" --resource-group "$RG" \
+#     --authentication-provider aad --user-details "<your-email>" \
+#     --role "member" --invitation-expiration-in-hours 168 \
+#     --domain "https://$SWA_HOSTNAME"
+#
+# It prints an invitation URL - open it once, signed in as yourself, to
+# accept and get the "member" role. staticwebapp.config.json's routes are
+# already set to require allowedRoles: ["member"].
 # ---------------------------------------------------------------------------
-echo "Creating tenant-restricted Entra app registration for login..."
-EXISTING_AUTH_APP_ID=$(az ad app list --display-name "linkedin-manager-swa-auth" --query "[0].appId" -o tsv)
-if [ -n "$EXISTING_AUTH_APP_ID" ]; then
-  echo "App registration already exists, reusing it."
-  AUTH_APP_ID="$EXISTING_AUTH_APP_ID"
-  # Make sure the redirect URI matches this SWA's current hostname (it may
-  # have changed if the SWA was recreated in a recovery scenario).
-  az ad app update --id "$AUTH_APP_ID" --web-redirect-uris "https://$SWA_HOSTNAME/.auth/login/aad/callback"
-else
-  AUTH_APP_ID=$(az ad app create --display-name "linkedin-manager-swa-auth" --sign-in-audience AzureADMyOrg --web-redirect-uris "https://$SWA_HOSTNAME/.auth/login/aad/callback" --query appId -o tsv)
-fi
-# Always (re)generate a secret and set it on the SWA - if the SWA itself was
-# freshly recreated in a recovery scenario, it needs the secret regardless of
-# whether the app registration already existed (we can't retrieve an old
-# secret's value, only mint a new one).
-AUTH_CLIENT_SECRET=$(az ad app credential reset --id "$AUTH_APP_ID" --append --query password -o tsv)
-az staticwebapp appsettings set --name "$SWA" --setting-names "AZURE_CLIENT_ID=$AUTH_APP_ID" "AZURE_CLIENT_SECRET=$AUTH_CLIENT_SECRET"
-TENANT_ID=$(az account show --query tenantId -o tsv)
-
 echo ""
-echo "Tenant-restricted auth app registration created:"
-echo "  App ID (client ID): $AUTH_APP_ID"
-echo "  Tenant ID:           $TENANT_ID"
-echo "Update src/public/staticwebapp.config.json with these two values"
-echo "(see the 'auth' block - openIdIssuer needs the tenant ID, registration"
-echo "needs the app ID) if they've changed from a previous run."
+echo "NOTE: To restrict app access to just your account, run the invitation"
+echo "command shown in the infra script comments above (needs your email)."
 
 echo ""
 echo "Done. Resources created/updated:"
