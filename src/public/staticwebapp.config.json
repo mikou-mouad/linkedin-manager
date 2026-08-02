@@ -1,6 +1,6 @@
 {
   "platform": {
-    "apiRuntime": "python:3.10"
+    "apiRuntime": "node:18"
   },
   "routes": [
     {

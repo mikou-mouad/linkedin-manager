@@ -8,3 +8,7 @@ local.settings.json
 
 # OS
 .DS_Store
+
+# Node
+node_modules/
+dist/

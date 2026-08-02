@@ -25,4 +25,4 @@ jobs:
           action: "upload"
           app_location: "src"
           api_location: "api"
-          output_location: "."
+          output_location: "dist"

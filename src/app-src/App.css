@@ -1,0 +1,146 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  background: #f6f7f9;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.app {
+  max-width: 900px;
+  margin: 40px auto;
+  padding: 0 16px;
+}
+
+h1 {
+  font-size: 1.4rem;
+}
+
+.toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+input,
+button,
+textarea {
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.post-card {
+  background: #fff;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  display: flex;
+  gap: 16px;
+}
+
+.thumb {
+  width: 90px;
+  height: 90px;
+  border-radius: 6px;
+  background: #eee;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.post-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.topic-input {
+  font-weight: 600;
+  border: none;
+  width: 100%;
+  background: transparent;
+  padding: 0;
+}
+
+.post-details textarea {
+  width: 100%;
+  min-height: 60px;
+  margin-top: 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 6px;
+}
+
+.meta {
+  display: flex;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: #555;
+  margin-top: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.status {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-draft {
+  background: #eee;
+}
+
+.status-scheduled {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.status-published {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-failed {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.actions button {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #d0d0d0;
+  background: #fff;
+  cursor: pointer;
+}
+
+.actions button:hover:not(:disabled) {
+  background: #f0f0f0;
+}
+
+.actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.error-msg {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: #991b1b;
+  background: #fef2f2;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
