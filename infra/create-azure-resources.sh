@@ -62,6 +62,40 @@ SWA_HOSTNAME=$(az staticwebapp show --name "$SWA" --resource-group "$RG" --query
 
 az staticwebapp appsettings set --name "$SWA" --setting-names "LINKEDIN_STORAGE_CONNECTION_STRING=$STORAGE_CONNECTION_STRING" "LINKEDIN_CLIENT_ID=$LINKEDIN_CLIENT_ID" "LINKEDIN_CLIENT_SECRET=$LINKEDIN_CLIENT_SECRET" "LINKEDIN_REDIRECT_URI=https://$SWA_HOSTNAME/api/auth/callback" "IMAGE_CONTAINER_NAME=post-images" "SCHEDULE_TABLE_NAME=PostSchedule" "TOKEN_TABLE_NAME=AuthTokens"
 
+# ---------------------------------------------------------------------------
+# 7. Tenant-restricted Entra (Azure AD) login, so the login gate only accepts
+# accounts from YOUR organization/tenant - not any Microsoft account.
+# This creates its own app registration + client secret and wires it into the
+# SWA's app settings as AZURE_CLIENT_ID / AZURE_CLIENT_SECRET. The client
+# secret never gets echoed - it's set directly, staying local to this run.
+# ---------------------------------------------------------------------------
+echo "Creating tenant-restricted Entra app registration for login..."
+EXISTING_AUTH_APP_ID=$(az ad app list --display-name "linkedin-manager-swa-auth" --query "[0].appId" -o tsv)
+if [ -n "$EXISTING_AUTH_APP_ID" ]; then
+  echo "App registration already exists, reusing it."
+  AUTH_APP_ID="$EXISTING_AUTH_APP_ID"
+  # Make sure the redirect URI matches this SWA's current hostname (it may
+  # have changed if the SWA was recreated in a recovery scenario).
+  az ad app update --id "$AUTH_APP_ID" --web-redirect-uris "https://$SWA_HOSTNAME/.auth/login/aad/callback"
+else
+  AUTH_APP_ID=$(az ad app create --display-name "linkedin-manager-swa-auth" --sign-in-audience AzureADMyOrg --web-redirect-uris "https://$SWA_HOSTNAME/.auth/login/aad/callback" --query appId -o tsv)
+fi
+# Always (re)generate a secret and set it on the SWA - if the SWA itself was
+# freshly recreated in a recovery scenario, it needs the secret regardless of
+# whether the app registration already existed (we can't retrieve an old
+# secret's value, only mint a new one).
+AUTH_CLIENT_SECRET=$(az ad app credential reset --id "$AUTH_APP_ID" --append --query password -o tsv)
+az staticwebapp appsettings set --name "$SWA" --setting-names "AZURE_CLIENT_ID=$AUTH_APP_ID" "AZURE_CLIENT_SECRET=$AUTH_CLIENT_SECRET"
+TENANT_ID=$(az account show --query tenantId -o tsv)
+
+echo ""
+echo "Tenant-restricted auth app registration created:"
+echo "  App ID (client ID): $AUTH_APP_ID"
+echo "  Tenant ID:           $TENANT_ID"
+echo "Update src/public/staticwebapp.config.json with these two values"
+echo "(see the 'auth' block - openIdIssuer needs the tenant ID, registration"
+echo "needs the app ID) if they've changed from a previous run."
+
 echo ""
 echo "Done. Resources created/updated:"
 echo "  Storage account: $STORAGE"
