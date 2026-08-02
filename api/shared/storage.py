@@ -8,14 +8,17 @@ from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPerm
 
 from .models import Post
 
-CONN_STR = os.environ["AzureWebJobsStorage"]
+def _conn_str():
+    return os.environ["AzureWebJobsStorage"]
+
+
 SCHEDULE_TABLE_NAME = os.environ.get("SCHEDULE_TABLE_NAME", "PostSchedule")
 TOKEN_TABLE_NAME = os.environ.get("TOKEN_TABLE_NAME", "AuthTokens")
 IMAGE_CONTAINER_NAME = os.environ.get("IMAGE_CONTAINER_NAME", "post-images")
 
 
 def _table_client(table_name: str):
-    service = TableServiceClient.from_connection_string(CONN_STR)
+    service = TableServiceClient.from_connection_string(_conn_str())
     try:
         service.create_table(table_name)
     except Exception:
@@ -24,7 +27,7 @@ def _table_client(table_name: str):
 
 
 def _blob_service():
-    return BlobServiceClient.from_connection_string(CONN_STR)
+    return BlobServiceClient.from_connection_string(_conn_str())
 
 
 # ---------- Post CRUD ----------

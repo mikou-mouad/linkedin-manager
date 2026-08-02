@@ -20,16 +20,24 @@ POSTS_URL = "https://api.linkedin.com/rest/posts"
 IMAGES_INIT_URL = "https://api.linkedin.com/rest/images?action=initializeUpload"
 LINKEDIN_VERSION = "202601"  # LinkedIn API version header; bump as needed
 
-CLIENT_ID = os.environ["LINKEDIN_CLIENT_ID"]
-CLIENT_SECRET = os.environ["LINKEDIN_CLIENT_SECRET"]
-REDIRECT_URI = os.environ["LINKEDIN_REDIRECT_URI"]
+
+def _client_id():
+    return os.environ["LINKEDIN_CLIENT_ID"]
+
+
+def _client_secret():
+    return os.environ["LINKEDIN_CLIENT_SECRET"]
+
+
+def _redirect_uri():
+    return os.environ["LINKEDIN_REDIRECT_URI"]
 
 
 def build_authorization_url(state: str) -> str:
     params = {
         "response_type": "code",
-        "client_id": CLIENT_ID,
-        "redirect_uri": REDIRECT_URI,
+        "client_id": _client_id(),
+        "redirect_uri": _redirect_uri(),
         "state": state,
         "scope": "openid profile email w_member_social",
     }
@@ -40,9 +48,9 @@ def exchange_code_for_token(code: str) -> dict:
     resp = requests.post(TOKEN_URL, data={
         "grant_type": "authorization_code",
         "code": code,
-        "redirect_uri": REDIRECT_URI,
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET,
+        "redirect_uri": _redirect_uri(),
+        "client_id": _client_id(),
+        "client_secret": _client_secret(),
     })
     resp.raise_for_status()
     return resp.json()
@@ -52,8 +60,8 @@ def refresh_access_token(refresh_token: str) -> dict:
     resp = requests.post(TOKEN_URL, data={
         "grant_type": "refresh_token",
         "refresh_token": refresh_token,
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET,
+        "client_id": _client_id(),
+        "client_secret": _client_secret(),
     })
     resp.raise_for_status()
     return resp.json()
