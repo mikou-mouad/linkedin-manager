@@ -91,6 +91,45 @@ echo ""
 echo "NOTE: To restrict app access to just your account, run the invitation"
 echo "command shown in the infra script comments above (needs your email)."
 
+# ---------------------------------------------------------------------------
+# 8. AI Foundry resource + Claude model deployment, for the "generate monthly
+# plan" / content-generation / image-matching features.
+#
+# NOTE: Anthropic's Claude models are "partner/marketplace" models in Foundry.
+# The very first deployment of a given model in a subscription sometimes
+# requires accepting Azure Marketplace terms through the Foundry portal UI
+# (a one-time click-through) before the CLI command below will succeed. If
+# this fails with a marketplace/terms error, go to https://ai.azure.com,
+# deploy the same model once through the portal (Discover -> Models -> your
+# Claude model -> Deploy), accept the terms there, then re-run this script -
+# it'll just update settings, not fail on the already-deployed model.
+#
+# Also: Claude models are only available in specific Foundry regions (not
+# necessarily francecentral/westeurope where our other resources live) -
+# using eastus2 here as a commonly-supported region; check
+# https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-from-partners#region-availability-by-deployment-type
+# if this region doesn't work for you and adjust FOUNDRY_LOCATION below.
+# ---------------------------------------------------------------------------
+FOUNDRY_ACCOUNT="linkedin-manager-ai-${SUFFIX}"
+FOUNDRY_LOCATION="eastus2"
+CLAUDE_DEPLOYMENT_NAME="claude-sonnet"
+CLAUDE_MODEL_NAME="claude-sonnet-4-6"
+
+echo "Creating AI Foundry resource..."
+az cognitiveservices account create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --kind AIServices --sku S0 --location "$FOUNDRY_LOCATION" --custom-domain "$FOUNDRY_ACCOUNT" --yes
+
+echo "Deploying Claude model (adjust CLAUDE_MODEL_NAME above if this errors - verify the exact model id/version in the Foundry portal's model catalog first)..."
+az cognitiveservices account deployment create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --deployment-name "$CLAUDE_DEPLOYMENT_NAME" --model-name "$CLAUDE_MODEL_NAME" --model-format "Anthropic" --model-version "1" --sku-name "GlobalStandard" --sku-capacity 1
+
+FOUNDRY_ENDPOINT=$(az cognitiveservices account show --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --query properties.endpoint -o tsv)
+FOUNDRY_KEY=$(az cognitiveservices account keys list --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --query key1 -o tsv)
+
+az staticwebapp appsettings set --name "$SWA" --setting-names "AI_FOUNDRY_ENDPOINT=$FOUNDRY_ENDPOINT" "AI_FOUNDRY_API_KEY=$FOUNDRY_KEY" "AI_FOUNDRY_DEPLOYMENT_NAME=$CLAUDE_DEPLOYMENT_NAME"
+
+echo "AI Foundry resource created and wired into the Static Web App's settings."
+echo "  Endpoint: $FOUNDRY_ENDPOINT"
+echo "  Deployment name: $CLAUDE_DEPLOYMENT_NAME"
+
 echo ""
 echo "Done. Resources created/updated:"
 echo "  Storage account: $STORAGE"
