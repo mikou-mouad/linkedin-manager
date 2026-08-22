@@ -116,10 +116,11 @@ echo "command shown in the infra script comments above (needs your email)."
 # providers (Anthropic, Microsoft, OpenAI).
 # ---------------------------------------------------------------------------
 FOUNDRY_ACCOUNT="linkedin-manager-ai-${SUFFIX}"
-FOUNDRY_LOCATION="eastus2"
+FOUNDRY_LOCATION="swedencentral"
+PROJECT_NAME="linkedin-manager-project"
 
-DEEPSEEK_DEPLOYMENT_NAME="deepseek-v3-2"
-DEEPSEEK_MODEL_NAME="DeepSeek-V3.2"
+DEEPSEEK_DEPLOYMENT_NAME="deepseek-v4-flash"
+DEEPSEEK_MODEL_NAME="DeepSeek-V4-Flash"
 
 QWEN_VL_DEPLOYMENT_NAME="qwen3-vl-30b"
 QWEN_VL_MODEL_NAME="qwen3-vl-30b-a3b-instruct"
@@ -127,8 +128,11 @@ QWEN_VL_MODEL_NAME="qwen3-vl-30b-a3b-instruct"
 QWEN_IMAGE_DEPLOYMENT_NAME="qwen-image-2512"
 QWEN_IMAGE_MODEL_NAME="qwen-image-2512"
 
-echo "Creating AI Foundry resource..."
-az cognitiveservices account create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --kind AIServices --sku S0 --location "$FOUNDRY_LOCATION" --custom-domain "$FOUNDRY_ACCOUNT" --yes
+echo "Creating AI Foundry resource (with project management enabled)..."
+az cognitiveservices account create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --kind AIServices --sku S0 --location "$FOUNDRY_LOCATION" --custom-domain "$FOUNDRY_ACCOUNT" --allow-project-management --yes
+
+echo "Creating Foundry project..."
+az cognitiveservices account project create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --project-name "$PROJECT_NAME" --location "$FOUNDRY_LOCATION"
 
 echo "Deploying DeepSeek V3 (planning + content generation)..."
 az cognitiveservices account deployment create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --deployment-name "$DEEPSEEK_DEPLOYMENT_NAME" --model-name "$DEEPSEEK_MODEL_NAME" --model-format "DeepSeek" --model-version "1" --sku-name "GlobalStandard" --sku-capacity 1
