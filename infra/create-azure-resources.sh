@@ -118,8 +118,8 @@ echo "command shown in the infra script comments above (needs your email)."
 FOUNDRY_ACCOUNT="linkedin-manager-ai-${SUFFIX}"
 FOUNDRY_LOCATION="eastus2"
 
-DEEPSEEK_DEPLOYMENT_NAME="deepseek-v3"
-DEEPSEEK_MODEL_NAME="deepseek-v3"
+DEEPSEEK_DEPLOYMENT_NAME="deepseek-v3-2"
+DEEPSEEK_MODEL_NAME="DeepSeek-V3.2"
 
 QWEN_VL_DEPLOYMENT_NAME="qwen3-vl-30b"
 QWEN_VL_MODEL_NAME="qwen3-vl-30b-a3b-instruct"
