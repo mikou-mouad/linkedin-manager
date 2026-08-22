@@ -92,43 +92,63 @@ echo "NOTE: To restrict app access to just your account, run the invitation"
 echo "command shown in the infra script comments above (needs your email)."
 
 # ---------------------------------------------------------------------------
-# 8. AI Foundry resource + Claude model deployment, for the "generate monthly
-# plan" / content-generation / image-matching features.
+# 8. AI Foundry resource + model deployments, for the "generate monthly plan"
+# / content-generation / image-matching / image-generation features.
 #
-# NOTE: Anthropic's Claude models are "partner/marketplace" models in Foundry.
-# The very first deployment of a given model in a subscription sometimes
-# requires accepting Azure Marketplace terms through the Foundry portal UI
-# (a one-time click-through) before the CLI command below will succeed. If
-# this fails with a marketplace/terms error, go to https://ai.azure.com,
-# deploy the same model once through the portal (Discover -> Models -> your
-# Claude model -> Deploy), accept the terms there, then re-run this script -
-# it'll just update settings, not fail on the already-deployed model.
+# Chosen models (cheapest per job after evaluation):
+#   - DeepSeek V3        -> monthly planning + post content generation
+#   - Qwen3-VL-30B       -> image matching (vision)
+#   - Qwen-Image-2512    -> image generation (fallback when no pool image fits)
 #
-# Also: Claude models are only available in specific Foundry regions (not
-# necessarily francecentral/westeurope where our other resources live) -
-# using eastus2 here as a commonly-supported region; check
-# https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-from-partners#region-availability-by-deployment-type
-# if this region doesn't work for you and adjust FOUNDRY_LOCATION below.
+# NOTE: These are all "partner/marketplace" models in Foundry (same category
+# Claude was in). The very first deployment of a given model in a
+# subscription sometimes requires accepting Azure Marketplace terms through
+# the Foundry portal UI (a one-time click-through) before the CLI command
+# below will succeed. If any of these fail with a marketplace/terms error,
+# go to https://ai.azure.com, deploy that same model once through the portal
+# (Discover -> Models -> pick the model -> Deploy), accept the terms there,
+# then re-run this script - it'll just update settings, not fail on an
+# already-deployed model.
+#
+# Also verify the exact --model-format / --model-version values in the
+# Foundry portal's model catalog before running if any of these error -
+# they're best-effort guesses based on the naming pattern used for other
+# providers (Anthropic, Microsoft, OpenAI).
 # ---------------------------------------------------------------------------
 FOUNDRY_ACCOUNT="linkedin-manager-ai-${SUFFIX}"
 FOUNDRY_LOCATION="eastus2"
-CLAUDE_DEPLOYMENT_NAME="claude-sonnet"
-CLAUDE_MODEL_NAME="claude-sonnet-4-6"
+
+DEEPSEEK_DEPLOYMENT_NAME="deepseek-v3"
+DEEPSEEK_MODEL_NAME="deepseek-v3"
+
+QWEN_VL_DEPLOYMENT_NAME="qwen3-vl-30b"
+QWEN_VL_MODEL_NAME="qwen3-vl-30b-a3b-instruct"
+
+QWEN_IMAGE_DEPLOYMENT_NAME="qwen-image-2512"
+QWEN_IMAGE_MODEL_NAME="qwen-image-2512"
 
 echo "Creating AI Foundry resource..."
 az cognitiveservices account create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --kind AIServices --sku S0 --location "$FOUNDRY_LOCATION" --custom-domain "$FOUNDRY_ACCOUNT" --yes
 
-echo "Deploying Claude model (adjust CLAUDE_MODEL_NAME above if this errors - verify the exact model id/version in the Foundry portal's model catalog first)..."
-az cognitiveservices account deployment create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --deployment-name "$CLAUDE_DEPLOYMENT_NAME" --model-name "$CLAUDE_MODEL_NAME" --model-format "Anthropic" --model-version "1" --sku-name "GlobalStandard" --sku-capacity 1
+echo "Deploying DeepSeek V3 (planning + content generation)..."
+az cognitiveservices account deployment create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --deployment-name "$DEEPSEEK_DEPLOYMENT_NAME" --model-name "$DEEPSEEK_MODEL_NAME" --model-format "DeepSeek" --model-version "1" --sku-name "GlobalStandard" --sku-capacity 1
+
+echo "Deploying Qwen3-VL-30B (image matching / vision)..."
+az cognitiveservices account deployment create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --deployment-name "$QWEN_VL_DEPLOYMENT_NAME" --model-name "$QWEN_VL_MODEL_NAME" --model-format "Qwen" --model-version "1" --sku-name "GlobalStandard" --sku-capacity 1
+
+echo "Deploying Qwen-Image-2512 (image generation fallback)..."
+az cognitiveservices account deployment create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --deployment-name "$QWEN_IMAGE_DEPLOYMENT_NAME" --model-name "$QWEN_IMAGE_MODEL_NAME" --model-format "Qwen" --model-version "1" --sku-name "GlobalStandard" --sku-capacity 1
 
 FOUNDRY_ENDPOINT=$(az cognitiveservices account show --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --query properties.endpoint -o tsv)
 FOUNDRY_KEY=$(az cognitiveservices account keys list --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --query key1 -o tsv)
 
-az staticwebapp appsettings set --name "$SWA" --setting-names "AI_FOUNDRY_ENDPOINT=$FOUNDRY_ENDPOINT" "AI_FOUNDRY_API_KEY=$FOUNDRY_KEY" "AI_FOUNDRY_DEPLOYMENT_NAME=$CLAUDE_DEPLOYMENT_NAME"
+az staticwebapp appsettings set --name "$SWA" --setting-names "AI_FOUNDRY_ENDPOINT=$FOUNDRY_ENDPOINT" "AI_FOUNDRY_API_KEY=$FOUNDRY_KEY" "AI_FOUNDRY_TEXT_DEPLOYMENT=$DEEPSEEK_DEPLOYMENT_NAME" "AI_FOUNDRY_VISION_DEPLOYMENT=$QWEN_VL_DEPLOYMENT_NAME" "AI_FOUNDRY_IMAGE_GEN_DEPLOYMENT=$QWEN_IMAGE_DEPLOYMENT_NAME"
 
 echo "AI Foundry resource created and wired into the Static Web App's settings."
 echo "  Endpoint: $FOUNDRY_ENDPOINT"
-echo "  Deployment name: $CLAUDE_DEPLOYMENT_NAME"
+echo "  Text (planning/content) deployment: $DEEPSEEK_DEPLOYMENT_NAME"
+echo "  Vision (matching) deployment:       $QWEN_VL_DEPLOYMENT_NAME"
+echo "  Image generation deployment:        $QWEN_IMAGE_DEPLOYMENT_NAME"
 
 echo ""
 echo "Done. Resources created/updated:"
