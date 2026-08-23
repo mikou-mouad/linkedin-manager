@@ -45,7 +45,7 @@ az storage table create --account-name "$STORAGE" --name AuthTokens --auth-mode 
 # ---------------------------------------------------------------------------
 az appservice plan create --name "$APPSERVICE_PLAN" --resource-group "$RG" --location "$LOCATION" --is-linux --sku F1
 
-az webapp create --name "$APPSERVICE" --resource-group "$RG" --plan "$APPSERVICE_PLAN" --runtime "NODE:20-lts"
+az webapp create --name "$APPSERVICE" --resource-group "$RG" --plan "$APPSERVICE_PLAN" --runtime "NODE:22-lts"
 
 APPSERVICE_HOSTNAME=$(az webapp show --name "$APPSERVICE" --resource-group "$RG" --query defaultHostName -o tsv)
 
@@ -65,7 +65,7 @@ LINKEDIN_CLIENT_ID=$(az keyvault secret show --vault-name "$KEYVAULT" --name "Cl
 LINKEDIN_CLIENT_SECRET=$(az keyvault secret show --vault-name "$KEYVAULT" --name "ClientSecret" --query value -o tsv)
 STORAGE_CONNECTION_STRING=$(az storage account show-connection-string --name "$STORAGE" --resource-group "$RG" --query connectionString -o tsv)
 
-az webapp config appsettings set --name "$APPSERVICE" --resource-group "$RG" --settings "LINKEDIN_STORAGE_CONNECTION_STRING=$STORAGE_CONNECTION_STRING" "LINKEDIN_CLIENT_ID=$LINKEDIN_CLIENT_ID" "LINKEDIN_CLIENT_SECRET=$LINKEDIN_CLIENT_SECRET" "LINKEDIN_REDIRECT_URI=https://$APPSERVICE_HOSTNAME/api/auth/callback" "IMAGE_CONTAINER_NAME=post-images" "SCHEDULE_TABLE_NAME=PostSchedule" "TOKEN_TABLE_NAME=AuthTokens" "APPLICATIONINSIGHTS_CONNECTION_STRING=$APPINSIGHTS_CONNECTION_STRING" "WEBSITE_NODE_DEFAULT_VERSION=~20"
+az webapp config appsettings set --name "$APPSERVICE" --resource-group "$RG" --settings "LINKEDIN_STORAGE_CONNECTION_STRING=$STORAGE_CONNECTION_STRING" "LINKEDIN_CLIENT_ID=$LINKEDIN_CLIENT_ID" "LINKEDIN_CLIENT_SECRET=$LINKEDIN_CLIENT_SECRET" "LINKEDIN_REDIRECT_URI=https://$APPSERVICE_HOSTNAME/api/auth/callback" "IMAGE_CONTAINER_NAME=post-images" "SCHEDULE_TABLE_NAME=PostSchedule" "TOKEN_TABLE_NAME=AuthTokens" "APPLICATIONINSIGHTS_CONNECTION_STRING=$APPINSIGHTS_CONNECTION_STRING" "WEBSITE_NODE_DEFAULT_VERSION=~22"
 
 # ---------------------------------------------------------------------------
 # 7. Restrict access to just your account, using App Service's built-in
