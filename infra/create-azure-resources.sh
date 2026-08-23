@@ -95,38 +95,31 @@ echo "command shown in the infra script comments above (needs your email)."
 # 8. AI Foundry resource + model deployments, for the "generate monthly plan"
 # / content-generation / image-matching / image-generation features.
 #
-# Chosen models (cheapest per job after evaluation):
-#   - DeepSeek V3        -> monthly planning + post content generation
-#   - Qwen3-VL-30B       -> image matching (vision)
-#   - Qwen-Image-2512    -> image generation (fallback when no pool image fits)
+# Chosen models:
+#   - GPT-5        -> monthly planning + post content generation
+#   - GPT-5-mini   -> image matching (vision)
+#   - DALL-E       -> image generation (already deployed manually by you -
+#     this script just wires its endpoint/key into the SWA's app settings,
+#     see DALLE_ACCOUNT/DALLE_RG/DALLE_DEPLOYMENT_NAME below, fill those in)
 #
-# NOTE: These are all "partner/marketplace" models in Foundry (same category
-# Claude was in). The very first deployment of a given model in a
-# subscription sometimes requires accepting Azure Marketplace terms through
-# the Foundry portal UI (a one-time click-through) before the CLI command
-# below will succeed. If any of these fail with a marketplace/terms error,
-# go to https://ai.azure.com, deploy that same model once through the portal
-# (Discover -> Models -> pick the model -> Deploy), accept the terms there,
-# then re-run this script - it'll just update settings, not fail on an
-# already-deployed model.
-#
-# Also verify the exact --model-format / --model-version values in the
-# Foundry portal's model catalog before running if any of these error -
-# they're best-effort guesses based on the naming pattern used for other
-# providers (Anthropic, Microsoft, OpenAI).
+# These are first-party Azure OpenAI models - no Marketplace/partner terms
+# step needed (unlike the DeepSeek/Qwen partner models we tried earlier,
+# which aren't deployable on a Visual Studio Enterprise subscription).
 # ---------------------------------------------------------------------------
 FOUNDRY_ACCOUNT="linkedin-manager-ai-${SUFFIX}"
 FOUNDRY_LOCATION="swedencentral"
 PROJECT_NAME="linkedin-manager-project"
 
-DEEPSEEK_DEPLOYMENT_NAME="deepseek-v4-flash"
-DEEPSEEK_MODEL_NAME="DeepSeek-V4-Flash"
+GPT_TEXT_DEPLOYMENT_NAME="gpt-5"
+GPT_TEXT_MODEL_NAME="gpt-5"
 
-QWEN_VL_DEPLOYMENT_NAME="qwen3-vl-30b"
-QWEN_VL_MODEL_NAME="qwen3-vl-30b-a3b-instruct"
+GPT_VISION_DEPLOYMENT_NAME="gpt-5-mini"
+GPT_VISION_MODEL_NAME="gpt-5-mini"
 
-QWEN_IMAGE_DEPLOYMENT_NAME="qwen-image-2512"
-QWEN_IMAGE_MODEL_NAME="qwen-image-2512"
+# --- Fill these in with your already-deployed DALL-E resource details ---
+DALLE_ACCOUNT="CHANGE_ME_dalle_account_name"
+DALLE_RG="CHANGE_ME_dalle_resource_group"
+DALLE_DEPLOYMENT_NAME="CHANGE_ME_dalle_deployment_name"
 
 echo "Creating AI Foundry resource (with project management enabled)..."
 az cognitiveservices account create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --kind AIServices --sku S0 --location "$FOUNDRY_LOCATION" --custom-domain "$FOUNDRY_ACCOUNT" --allow-project-management --yes
@@ -134,25 +127,26 @@ az cognitiveservices account create --name "$FOUNDRY_ACCOUNT" --resource-group "
 echo "Creating Foundry project..."
 az cognitiveservices account project create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --project-name "$PROJECT_NAME" --location "$FOUNDRY_LOCATION"
 
-echo "Deploying DeepSeek V3 (planning + content generation)..."
-az cognitiveservices account deployment create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --deployment-name "$DEEPSEEK_DEPLOYMENT_NAME" --model-name "$DEEPSEEK_MODEL_NAME" --model-format "DeepSeek" --model-version "1" --sku-name "GlobalStandard" --sku-capacity 1
+echo "Deploying GPT-5 (planning + content generation)..."
+az cognitiveservices account deployment create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --deployment-name "$GPT_TEXT_DEPLOYMENT_NAME" --model-name "$GPT_TEXT_MODEL_NAME" --model-format "OpenAI" --model-version "1" --sku-name "GlobalStandard" --sku-capacity 1
 
-echo "Deploying Qwen3-VL-30B (image matching / vision)..."
-az cognitiveservices account deployment create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --deployment-name "$QWEN_VL_DEPLOYMENT_NAME" --model-name "$QWEN_VL_MODEL_NAME" --model-format "Qwen" --model-version "1" --sku-name "GlobalStandard" --sku-capacity 1
-
-echo "Deploying Qwen-Image-2512 (image generation fallback)..."
-az cognitiveservices account deployment create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --deployment-name "$QWEN_IMAGE_DEPLOYMENT_NAME" --model-name "$QWEN_IMAGE_MODEL_NAME" --model-format "Qwen" --model-version "1" --sku-name "GlobalStandard" --sku-capacity 1
+echo "Deploying GPT-5-mini (image matching / vision)..."
+az cognitiveservices account deployment create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --deployment-name "$GPT_VISION_DEPLOYMENT_NAME" --model-name "$GPT_VISION_MODEL_NAME" --model-format "OpenAI" --model-version "1" --sku-name "GlobalStandard" --sku-capacity 1
 
 FOUNDRY_ENDPOINT=$(az cognitiveservices account show --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --query properties.endpoint -o tsv)
 FOUNDRY_KEY=$(az cognitiveservices account keys list --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --query key1 -o tsv)
 
-az staticwebapp appsettings set --name "$SWA" --setting-names "AI_FOUNDRY_ENDPOINT=$FOUNDRY_ENDPOINT" "AI_FOUNDRY_API_KEY=$FOUNDRY_KEY" "AI_FOUNDRY_TEXT_DEPLOYMENT=$DEEPSEEK_DEPLOYMENT_NAME" "AI_FOUNDRY_VISION_DEPLOYMENT=$QWEN_VL_DEPLOYMENT_NAME" "AI_FOUNDRY_IMAGE_GEN_DEPLOYMENT=$QWEN_IMAGE_DEPLOYMENT_NAME"
+echo "Fetching your already-deployed DALL-E resource's endpoint/key..."
+DALLE_ENDPOINT=$(az cognitiveservices account show --name "$DALLE_ACCOUNT" --resource-group "$DALLE_RG" --query properties.endpoint -o tsv)
+DALLE_KEY=$(az cognitiveservices account keys list --name "$DALLE_ACCOUNT" --resource-group "$DALLE_RG" --query key1 -o tsv)
+
+az staticwebapp appsettings set --name "$SWA" --setting-names "AI_FOUNDRY_ENDPOINT=$FOUNDRY_ENDPOINT" "AI_FOUNDRY_API_KEY=$FOUNDRY_KEY" "AI_FOUNDRY_TEXT_DEPLOYMENT=$GPT_TEXT_DEPLOYMENT_NAME" "AI_FOUNDRY_VISION_DEPLOYMENT=$GPT_VISION_DEPLOYMENT_NAME" "AI_DALLE_ENDPOINT=$DALLE_ENDPOINT" "AI_DALLE_API_KEY=$DALLE_KEY" "AI_DALLE_DEPLOYMENT=$DALLE_DEPLOYMENT_NAME"
 
 echo "AI Foundry resource created and wired into the Static Web App's settings."
 echo "  Endpoint: $FOUNDRY_ENDPOINT"
-echo "  Text (planning/content) deployment: $DEEPSEEK_DEPLOYMENT_NAME"
-echo "  Vision (matching) deployment:       $QWEN_VL_DEPLOYMENT_NAME"
-echo "  Image generation deployment:        $QWEN_IMAGE_DEPLOYMENT_NAME"
+echo "  Text (planning/content) deployment: $GPT_TEXT_DEPLOYMENT_NAME"
+echo "  Vision (matching) deployment:       $GPT_VISION_DEPLOYMENT_NAME"
+echo "  Image generation (DALL-E) endpoint: $DALLE_ENDPOINT"
 
 echo ""
 echo "Done. Resources created/updated:"
