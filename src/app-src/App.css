@@ -333,11 +333,12 @@ textarea {
 
 .calendar-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
 .calendar-cell {
   min-height: 90px;
+  min-width: 0;
   border-right: 1px solid #eee;
   border-bottom: 1px solid #eee;
   padding: 6px;
@@ -379,6 +380,7 @@ textarea {
 .calendar-post-pill {
   display: block;
   width: 100%;
+  min-width: 0;
   text-align: left;
   border: none;
   border-radius: 4px;
