@@ -17,6 +17,9 @@ export default function App() {
   const [industryContext, setIndustryContext] = useState("");
   const [numberOfPosts, setNumberOfPosts] = useState(12);
   const [generatingPlan, setGeneratingPlan] = useState(false);
+  const [planResults, setPlanResults] = useState(null); // { count, posts } | null
+  const [planError, setPlanError] = useState(null);
+  const [notice, setNotice] = useState(null); // small transient message, e.g. publish failures
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
@@ -36,6 +39,8 @@ export default function App() {
 
   async function generateMonthlyPlan() {
     setGeneratingPlan(true);
+    setPlanResults(null);
+    setPlanError(null);
     try {
       const res = await fetch(`${API_BASE_URL}/plan/generate`, {
         method: "POST",
@@ -44,16 +49,13 @@ export default function App() {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(`Plan generation failed: ${data.error || "unknown error"}`);
+        setPlanError(data.error || "unknown error");
         return;
       }
-      const summary = data.posts
-        .map((p) => `[${p.funnelStage}] ${p.topic}${p.rationale ? ` — ${p.rationale}` : ""}`)
-        .join("\n");
-      alert(`Generated ${data.count} topic ideas for ${yearMonth}:\n\n${summary}`);
+      setPlanResults(data);
       loadPosts();
     } catch (e) {
-      alert(`Plan generation failed: ${e.message}`);
+      setPlanError(e.message);
     } finally {
       setGeneratingPlan(false);
     }
@@ -99,7 +101,9 @@ export default function App() {
       method: "POST",
     });
     if (!res.ok) {
-      alert("Publish failed - check the post's error message after refresh.");
+      setNotice({ type: "error", text: "Publish failed - check the post's error message below." });
+    } else {
+      setNotice({ type: "success", text: "Published." });
     }
     loadPosts();
   }
@@ -142,7 +146,37 @@ export default function App() {
             Searching the web and drafting topic ideas — this can take 20-40 seconds.
           </p>
         )}
+        {planError && (
+          <div className="plan-error">
+            <strong>Plan generation failed:</strong> {planError}
+            <button className="dismiss-btn" onClick={() => setPlanError(null)}>×</button>
+          </div>
+        )}
       </div>
+
+      {planResults && (
+        <div className="plan-results">
+          <div className="plan-results-header">
+            <strong>Generated {planResults.count} topic ideas for {planResults.yearMonth}</strong>
+            <button className="dismiss-btn" onClick={() => setPlanResults(null)}>×</button>
+          </div>
+          <ul className="plan-results-list">
+            {planResults.posts.map((p) => (
+              <li key={p.id}>
+                <span className="funnel-tag">{p.funnelStage}</span> {p.topic}
+                {p.rationale && <span className="rationale"> — {p.rationale}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {notice && (
+        <div className={`notice notice-${notice.type}`}>
+          {notice.text}
+          <button className="dismiss-btn" onClick={() => setNotice(null)}>×</button>
+        </div>
+      )}
 
       <div className="toolbar">
         <input type="month" value={yearMonth} onChange={(e) => setYearMonth(e.target.value)} />
