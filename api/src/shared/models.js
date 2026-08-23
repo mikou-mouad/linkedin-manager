@@ -1,9 +1,13 @@
 const { randomUUID } = require("crypto");
 
+const STATUS_PROPOSED = "proposed"; // AI-suggested topic, awaiting your approval
 const STATUS_DRAFT = "draft";
 const STATUS_SCHEDULED = "scheduled";
 const STATUS_PUBLISHED = "published";
 const STATUS_FAILED = "failed";
+
+const TARGET_PERSON = "person"; // your own profile - the only one that actually works today
+const TARGET_ORGANIZATION = "organization"; // a company page - needs LinkedIn's Community Management API approval, not usable yet
 
 /**
  * Stored in Azure Table Storage. Entities are flat objects with
@@ -18,9 +22,12 @@ function newPost(overrides = {}) {
     scheduledDate: overrides.scheduledDate || "",
     scheduledTime: overrides.scheduledTime || "09:00",
     topic: overrides.topic || "",
+    funnelStage: overrides.funnelStage || null, // "TOFU" | "MOFU" | "BOFU"
     copyText: overrides.copyText || "",
     imageBlobName: overrides.imageBlobName ?? null,
     status: overrides.status || STATUS_DRAFT,
+    targetType: overrides.targetType || TARGET_PERSON,
+    targetName: overrides.targetName || "My profile",
     linkedinPostUrn: overrides.linkedinPostUrn ?? null,
     errorMessage: overrides.errorMessage ?? null,
     createdAt: overrides.createdAt || now,
@@ -51,10 +58,13 @@ function fromEntity(entity) {
 }
 
 module.exports = {
+  STATUS_PROPOSED,
   STATUS_DRAFT,
   STATUS_SCHEDULED,
   STATUS_PUBLISHED,
   STATUS_FAILED,
+  TARGET_PERSON,
+  TARGET_ORGANIZATION,
   newPost,
   partitionKey,
   toEntity,
