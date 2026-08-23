@@ -76,6 +76,51 @@ textarea {
   cursor: not-allowed;
 }
 
+.account-select {
+  padding: 4px 8px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  max-width: 160px;
+}
+
+.accounts-panel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+  padding: 8px 0;
+}
+
+.accounts-empty {
+  color: #999;
+  font-style: italic;
+}
+
+.account-chip {
+  background: #eef2ff;
+  color: #3730a3;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+}
+
+.connect-account-btn {
+  margin-left: auto;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid #1e40af;
+  color: #1e40af;
+  text-decoration: none;
+  font-size: 0.8rem;
+}
+
+.connect-account-btn:hover {
+  background: #eef2ff;
+}
+
 .post-details {
   flex: 1;
   min-width: 0;

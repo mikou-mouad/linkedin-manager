@@ -1,7 +1,9 @@
 /**
- * LinkedIn OAuth 2.0 (3-legged) + Post API helpers.
+ * LinkedIn OAuth 2.0 (3-legged) + Post API helpers. Supports multiple
+ * connected accounts - each account is identified by their LinkedIn member
+ * ID (the "sub" from userinfo), and callers pass which account to act as.
  * Scopes needed: openid profile email w_member_social
- * Uses Node's built-in fetch (Node 18+, available in Azure Functions Node runtime).
+ * Uses Node's built-in fetch (Node 18+).
  */
 const storage = require("./storage");
 
@@ -58,36 +60,57 @@ async function refreshAccessToken(refreshToken) {
   return resp.json();
 }
 
-async function getMemberUrn(accessToken) {
+/** Fetches the connecting person's LinkedIn member id, urn, and display name. */
+async function getUserInfo(accessToken) {
   const resp = await fetch(USERINFO_URL, { headers: { Authorization: `Bearer ${accessToken}` } });
   if (!resp.ok) throw new Error(`userinfo failed: ${resp.status} ${await resp.text()}`);
   const data = await resp.json();
-  return `urn:li:person:${data.sub}`;
+  return {
+    accountId: data.sub,
+    memberUrn: `urn:li:person:${data.sub}`,
+    displayName: data.name || data.email || data.sub,
+  };
 }
 
-async function storeNewTokens(tokenResponse) {
+/**
+ * Completes the OAuth flow for whoever just authorized: stores their tokens
+ * under their own account id, so multiple people can each connect their own
+ * account without overwriting each other.
+ * @returns {{accountId: string, displayName: string}}
+ */
+async function storeNewAccount(tokenResponse) {
   const accessToken = tokenResponse.access_token;
   const refreshToken = tokenResponse.refresh_token || "";
   const expiresIn = tokenResponse.expires_in || 3600;
   const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
-  const memberUrn = await getMemberUrn(accessToken);
-  await storage.saveTokens(accessToken, refreshToken, expiresAt, memberUrn);
+
+  const { accountId, memberUrn, displayName } = await getUserInfo(accessToken);
+  await storage.saveAccount({ accountId, accessToken, refreshToken, expiresAt, memberUrn, displayName });
+  return { accountId, displayName };
 }
 
-async function getValidAccessToken() {
-  const tokens = await storage.getTokens();
-  if (!tokens) throw new Error("No LinkedIn tokens stored - visit /api/authStart first.");
+async function getValidAccessToken(accountId) {
+  if (!accountId) throw new Error("No LinkedIn account specified for this post - assign one first.");
+  const account = await storage.getAccount(accountId);
+  if (!account) throw new Error(`No connected LinkedIn account found for id '${accountId}'.`);
 
-  const expiresAt = new Date(tokens.expiresAt).getTime();
+  const expiresAt = new Date(account.expiresAt).getTime();
   const fiveMinutes = 5 * 60 * 1000;
   if (Date.now() >= expiresAt - fiveMinutes) {
-    const refreshed = await refreshAccessToken(tokens.refreshToken);
+    const refreshed = await refreshAccessToken(account.refreshToken);
     const newExpiresAt = new Date(Date.now() + (refreshed.expires_in || 3600) * 1000).toISOString();
-    const newRefreshToken = refreshed.refresh_token || tokens.refreshToken;
-    await storage.saveTokens(refreshed.access_token, newRefreshToken, newExpiresAt, tokens.memberUrn);
-    return { accessToken: refreshed.access_token, memberUrn: tokens.memberUrn };
+    const newRefreshToken = refreshed.refresh_token || account.refreshToken;
+    await storage.saveAccount({
+      accountId,
+      accessToken: refreshed.access_token,
+      refreshToken: newRefreshToken,
+      expiresAt: newExpiresAt,
+      memberUrn: account.memberUrn,
+      displayName: account.displayName,
+    });
+    return { accessToken: refreshed.access_token, memberUrn: account.memberUrn };
   }
-  return { accessToken: tokens.accessToken, memberUrn: tokens.memberUrn };
+  return { accessToken: account.accessToken, memberUrn: account.memberUrn };
 }
 
 async function uploadImageToLinkedIn(accessToken, memberUrn, imageBytes) {
@@ -114,8 +137,12 @@ async function uploadImageToLinkedIn(accessToken, memberUrn, imageBytes) {
   return imageUrn;
 }
 
-async function publishPost(text, imageBytes = null) {
-  const { accessToken, memberUrn } = await getValidAccessToken();
+/**
+ * Publishes as a specific connected account.
+ * @param {string} accountId - which connected account to publish as
+ */
+async function publishPost(accountId, text, imageBytes = null) {
+  const { accessToken, memberUrn } = await getValidAccessToken(accountId);
 
   const body = {
     author: memberUrn,
@@ -152,6 +179,6 @@ async function publishPost(text, imageBytes = null) {
 module.exports = {
   buildAuthorizationUrl,
   exchangeCodeForToken,
-  storeNewTokens,
+  storeNewAccount,
   publishPost,
 };

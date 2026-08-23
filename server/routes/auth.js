@@ -23,8 +23,8 @@ router.get("/callback", async (req, res) => {
 
   try {
     const tokenResponse = await linkedinAuth.exchangeCodeForToken(code);
-    await linkedinAuth.storeNewTokens(tokenResponse);
-    res.send("LinkedIn account connected successfully. You can close this tab.");
+    await linkedinAuth.storeNewAccount(tokenResponse);
+    res.redirect("/");
   } catch (e) {
     console.error("LinkedIn OAuth callback failed:", e);
     res.status(500).send(`Failed to connect LinkedIn account: ${e.message}`);

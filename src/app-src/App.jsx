@@ -22,7 +22,7 @@ function firstWeekdayOffset(yearMonth) {
   return (jsDay + 6) % 7;
 }
 
-function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel, onGenerateContent, generatingContent, onGenerateImage, generatingImage }) {
+function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel, onGenerateContent, generatingContent, onGenerateImage, generatingImage, accounts }) {
   const textareaRef = useRef(null);
 
   useEffect(() => {
@@ -69,6 +69,18 @@ function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel, onG
             onChange={(e) => onUpdateField(post, "scheduledTime", e.target.value)}
           />
           <span className={statusClass(post.status)}>{post.status}</span>
+          <select
+            className="account-select"
+            value={post.targetAccountId || ""}
+            onChange={(e) => onUpdateField(post, "targetAccountId", e.target.value)}
+          >
+            <option value="">No account assigned</option>
+            {accounts.map((acc) => (
+              <option key={acc.accountId} value={acc.accountId}>
+                {acc.displayName}
+              </option>
+            ))}
+          </select>
           <input type="file" accept="image/*" onChange={(e) => onUploadImage(post, e.target.files[0])} />
           <button className="find-image-btn" onClick={() => onGenerateImage(post)} disabled={generatingImage}>
             {generatingImage ? "Finding image..." : post.imageBlobName ? "Replace image" : "Find/generate image"}
@@ -112,6 +124,7 @@ export default function App() {
   const [selectedPostId, setSelectedPostId] = useState(null);
   const [generatingContentFor, setGeneratingContentFor] = useState(null);
   const [generatingImageFor, setGeneratingImageFor] = useState(null);
+  const [accounts, setAccounts] = useState([]);
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
@@ -125,10 +138,19 @@ export default function App() {
     }
   }, [yearMonth]);
 
+  const loadAccounts = useCallback(async () => {
+    const res = await fetch(`${API_BASE_URL}/accounts`);
+    setAccounts(await res.json());
+  }, []);
+
   useEffect(() => {
     loadPosts();
     setSelectedPostId(null);
   }, [loadPosts]);
+
+  useEffect(() => {
+    loadAccounts();
+  }, [loadAccounts]);
 
   async function generateMonthlyPlan() {
     setGeneratingPlan(true);
@@ -442,6 +464,15 @@ export default function App() {
         </div>
       )}
 
+      <div className="accounts-panel">
+        <strong>Connected LinkedIn accounts:</strong>
+        {accounts.length === 0 && <span className="accounts-empty"> none yet</span>}
+        {accounts.map((acc) => (
+          <span key={acc.accountId} className="account-chip">{acc.displayName}</span>
+        ))}
+        <a href="/api/auth/start" className="connect-account-btn">+ Connect account</a>
+      </div>
+
       <div className="toolbar">
         <input type="month" value={yearMonth} onChange={(e) => setYearMonth(e.target.value)} />
         <button onClick={loadPosts}>Load</button>
@@ -478,6 +509,7 @@ export default function App() {
                 generatingContent={generatingContentFor === selectedPost.id}
                 onGenerateImage={generateImage}
                 generatingImage={generatingImageFor === selectedPost.id}
+                accounts={accounts}
               />
             </div>
           )}
@@ -497,6 +529,7 @@ export default function App() {
             generatingContent={generatingContentFor === post.id}
             onGenerateImage={generateImage}
             generatingImage={generatingImageFor === post.id}
+            accounts={accounts}
           />
         ))}
     </div>

@@ -154,31 +154,50 @@ function streamToBuffer(readableStream) {
   });
 }
 
-// ---------- OAuth token storage ----------
+// ---------- OAuth account storage (multiple connected LinkedIn accounts) ----------
+// Each connected account is its own row, keyed by their LinkedIn member ID
+// (stable, one per person). This lets multiple people connect their own
+// accounts and posts get assigned to whichever one should publish them.
 
-async function saveTokens(accessToken, refreshToken, expiresAt, memberUrn) {
+async function saveAccount({ accountId, accessToken, refreshToken, expiresAt, memberUrn, displayName }) {
   const client = await tableClient(TOKEN_TABLE_NAME);
   await client.upsertEntity(
     {
       partitionKey: "linkedin",
-      rowKey: "default",
+      rowKey: accountId,
       accessToken,
       refreshToken,
       expiresAt,
       memberUrn,
+      displayName: displayName || memberUrn,
     },
     "Merge"
   );
 }
 
-async function getTokens() {
+async function getAccount(accountId) {
   const client = await tableClient(TOKEN_TABLE_NAME);
   try {
-    const entity = await client.getEntity("linkedin", "default");
+    const entity = await client.getEntity("linkedin", accountId);
     return entity;
   } catch (e) {
     return null;
   }
+}
+
+/** List connected accounts - excludes raw tokens, safe to send to the frontend. */
+async function listAccounts() {
+  const client = await tableClient(TOKEN_TABLE_NAME);
+  const accounts = [];
+  const iter = client.listEntities({ queryOptions: { filter: `PartitionKey eq 'linkedin'` } });
+  for await (const entity of iter) {
+    accounts.push({
+      accountId: entity.rowKey,
+      displayName: entity.displayName || entity.memberUrn,
+      memberUrn: entity.memberUrn,
+    });
+  }
+  return accounts;
 }
 
 module.exports = {
@@ -192,7 +211,8 @@ module.exports = {
   moveImageToUsed,
   uploadUsedImageForPost,
   downloadImageBytes,
-  saveTokens,
-  getTokens,
+  saveAccount,
+  getAccount,
+  listAccounts,
   IMAGE_CONTAINER_NAME,
 };

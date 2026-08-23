@@ -5,6 +5,7 @@ const authRoutes = require("./routes/auth");
 const postsRoutes = require("./routes/posts");
 const imagesRoutes = require("./routes/images");
 const planningRoutes = require("./routes/planning");
+const accountsRoutes = require("./routes/accounts");
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -13,6 +14,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/posts", postsRoutes);
 app.use("/api/images", imagesRoutes);
 app.use("/api/plan", planningRoutes);
+app.use("/api/accounts", accountsRoutes);
 
 // Serve the built React frontend (copied into ./public during the build step)
 const publicDir = path.join(__dirname, "public");

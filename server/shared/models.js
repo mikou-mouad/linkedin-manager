@@ -29,6 +29,7 @@ function newPost(overrides = {}) {
     status: overrides.status || STATUS_DRAFT,
     targetType: overrides.targetType || TARGET_PERSON,
     targetName: overrides.targetName || "My profile",
+    targetAccountId: overrides.targetAccountId || null, // which connected LinkedIn account publishes this
     linkedinPostUrn: overrides.linkedinPostUrn ?? null,
     errorMessage: overrides.errorMessage ?? null,
     createdAt: overrides.createdAt || now,

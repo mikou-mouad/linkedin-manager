@@ -32,7 +32,7 @@ router.put("/:yearMonth/:postId", jsonBody, async (req, res) => {
   const existing = await storage.getPost(postId, yearMonth);
   if (!existing) return res.status(404).send("Post not found");
 
-  const editableFields = ["scheduledDate", "scheduledTime", "topic", "copyText", "imageBlobName", "status", "targetType", "targetName", "funnelStage", "rationale"];
+  const editableFields = ["scheduledDate", "scheduledTime", "topic", "copyText", "imageBlobName", "status", "targetType", "targetName", "targetAccountId", "funnelStage", "rationale"];
   for (const field of editableFields) {
     if (field in req.body) existing[field] = req.body[field];
   }
@@ -235,7 +235,7 @@ router.post("/:yearMonth/:postId/publish", async (req, res) => {
     if (post.imageBlobName) {
       imageBytes = await storage.downloadImageBytes(post.imageBlobName);
     }
-    const postUrn = await linkedinAuth.publishPost(post.copyText, imageBytes);
+    const postUrn = await linkedinAuth.publishPost(post.targetAccountId, post.copyText, imageBytes);
 
     post.status = STATUS_PUBLISHED;
     post.linkedinPostUrn = postUrn;
