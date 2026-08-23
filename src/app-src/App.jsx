@@ -69,7 +69,12 @@ export default function App() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [industryContext, setIndustryContext] = useState("");
-  const [numberOfPosts, setNumberOfPosts] = useState(12);
+  const [tofuCount, setTofuCount] = useState(4);
+  const [mofuCount, setMofuCount] = useState(4);
+  const [bofuCount, setBofuCount] = useState(4);
+  const [preselectedTopicsText, setPreselectedTopicsText] = useState("");
+  const [specificNews, setSpecificNews] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [planResults, setPlanResults] = useState(null);
   const [planError, setPlanError] = useState(null);
@@ -99,10 +104,22 @@ export default function App() {
     setPlanResults(null);
     setPlanError(null);
     try {
+      const preselectedTopics = preselectedTopicsText
+        .split("\n")
+        .map((t) => t.trim())
+        .filter(Boolean);
       const res = await fetch(`${API_BASE_URL}/plan/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ yearMonth, numberOfPosts: Number(numberOfPosts), industryContext }),
+        body: JSON.stringify({
+          yearMonth,
+          tofuCount: Number(tofuCount),
+          mofuCount: Number(mofuCount),
+          bofuCount: Number(bofuCount),
+          industryContext,
+          preselectedTopics,
+          specificNews,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -245,19 +262,70 @@ export default function App() {
             onChange={(e) => setIndustryContext(e.target.value)}
             className="industry-input"
           />
-          <input
-            type="number"
-            min="1"
-            max="30"
-            value={numberOfPosts}
-            onChange={(e) => setNumberOfPosts(e.target.value)}
-            className="count-input"
-            title="Number of topics to propose"
-          />
+          <label className="count-label">
+            TOFU
+            <input
+              type="number"
+              min="0"
+              max="30"
+              value={tofuCount}
+              onChange={(e) => setTofuCount(e.target.value)}
+              className="count-input"
+            />
+          </label>
+          <label className="count-label">
+            MOFU
+            <input
+              type="number"
+              min="0"
+              max="30"
+              value={mofuCount}
+              onChange={(e) => setMofuCount(e.target.value)}
+              className="count-input"
+            />
+          </label>
+          <label className="count-label">
+            BOFU
+            <input
+              type="number"
+              min="0"
+              max="30"
+              value={bofuCount}
+              onChange={(e) => setBofuCount(e.target.value)}
+              className="count-input"
+            />
+          </label>
           <button onClick={generateMonthlyPlan} disabled={generatingPlan}>
             {generatingPlan ? "Generating..." : "Generate Monthly Plan"}
           </button>
         </div>
+
+        <button className="advanced-toggle" onClick={() => setShowAdvanced((v) => !v)}>
+          {showAdvanced ? "▾" : "▸"} Preselected subjects / specific news to cover
+        </button>
+        {showAdvanced && (
+          <div className="advanced-panel">
+            <label className="advanced-field">
+              Preselected subjects (one per line — these will be included as-is)
+              <textarea
+                rows={3}
+                value={preselectedTopicsText}
+                onChange={(e) => setPreselectedTopicsText(e.target.value)}
+                placeholder={"Our new pricing model explained\nWhy we moved to a usage-based plan"}
+              />
+            </label>
+            <label className="advanced-field">
+              Specific news / story to cover
+              <textarea
+                rows={2}
+                value={specificNews}
+                onChange={(e) => setSpecificNews(e.target.value)}
+                placeholder="e.g. the recent AZ-104 exam update from Microsoft"
+              />
+            </label>
+          </div>
+        )}
+
         {generatingPlan && (
           <p className="plan-generator-hint">
             Searching the web and drafting topic ideas — this can take 20-40 seconds.

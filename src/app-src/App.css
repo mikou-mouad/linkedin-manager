@@ -173,6 +173,51 @@ textarea {
   border-radius: 6px;
 }
 
+.count-label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #666;
+  gap: 3px;
+}
+
+.advanced-toggle {
+  margin-top: 10px;
+  border: none;
+  background: transparent;
+  color: #1e40af;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.advanced-panel {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.advanced-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #555;
+}
+
+.advanced-field textarea {
+  font-weight: normal;
+  font-size: 0.85rem;
+  padding: 8px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  resize: vertical;
+  font-family: inherit;
+}
+
 .plan-generator button {
   padding: 8px 14px;
   border-radius: 6px;
