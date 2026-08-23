@@ -42,6 +42,15 @@ az storage table create --account-name "$STORAGE" --name AuthTokens --auth-mode 
 # westeurope, eastasia). Using westeurope — closest supported region.
 az staticwebapp create --name "$SWA" --resource-group "$RG" --location westeurope --sku Free
 
+# 5b. Application Insights, so we can actually see logs from the Managed
+# Functions - without this there's no visibility into server-side errors at
+# all. This just needs a connection-string app setting, no managed identity,
+# so it's compatible with Managed Functions' limitations.
+APPINSIGHTS_NAME="linkedin-manager-insights-${SUFFIX}"
+az monitor app-insights component create --app "$APPINSIGHTS_NAME" --location westeurope --resource-group "$RG" --application-type web
+APPINSIGHTS_CONNECTION_STRING=$(az monitor app-insights component show --app "$APPINSIGHTS_NAME" --resource-group "$RG" --query connectionString -o tsv)
+az staticwebapp appsettings set --name "$SWA" --setting-names "APPLICATIONINSIGHTS_CONNECTION_STRING=$APPINSIGHTS_CONNECTION_STRING"
+
 # ---------------------------------------------------------------------------
 # 6. App settings for the Managed Functions API.
 #

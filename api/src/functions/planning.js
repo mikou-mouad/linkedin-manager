@@ -42,43 +42,62 @@ Search the web for what's actually happening in this space right now before prop
 }
 
 async function generateMonthlyPlanLogic({ yearMonth, numberOfPosts, industryContext }, context) {
+  const log = (msg) => { if (context) context.log(`[generateMonthlyPlan] ${msg}`); };
+
   if (!yearMonth) {
     return { status: 400, body: { error: "Missing 'yearMonth' (e.g. '2026-09')" } };
   }
   numberOfPosts = numberOfPosts || 12;
   industryContext = industryContext || "";
 
+  log(`Starting - yearMonth=${yearMonth} numberOfPosts=${numberOfPosts}`);
+
   let proposedTopics;
   try {
+    const startedAt = Date.now();
     const result = await aiFoundry.callResponses(
       aiFoundry.textDeployment(),
       buildInput({ yearMonth, numberOfPosts, industryContext }),
       { instructions: buildInstructions(), webSearch: true, maxOutputTokens: 4000 }
     );
+    log(`AI Foundry call completed in ${Date.now() - startedAt}ms`);
     const text = aiFoundry.extractOutputText(result);
+    log(`Extracted output text (${text.length} chars)`);
     proposedTopics = aiFoundry.parseJsonFromText(text);
   } catch (e) {
-    if (context) context.error(`Monthly plan generation failed: ${e.message}`);
+    log(`FAILED during AI call/parse: ${e.message}`);
+    if (context) context.error(`Monthly plan generation failed: ${e.stack || e.message}`);
     return { status: 500, body: { error: `Plan generation failed: ${e.message}` } };
   }
 
   if (!Array.isArray(proposedTopics)) {
+    log(`Model output was not an array: ${JSON.stringify(proposedTopics).slice(0, 300)}`);
     return { status: 500, body: { error: "Model did not return a JSON array as expected", raw: proposedTopics } };
   }
 
   const createdPosts = [];
-  for (const proposal of proposedTopics) {
-    const post = newPost({
-      scheduledDate: proposal.suggestedDate || `${yearMonth}-01`,
-      scheduledTime: "09:00",
-      topic: proposal.topic || "Untitled topic",
-      funnelStage: proposal.funnelStage || null,
-      status: STATUS_PROPOSED,
-    });
-    await storage.savePost(post);
-    createdPosts.push({ ...post, rationale: proposal.rationale || null });
+  try {
+    for (const proposal of proposedTopics) {
+      const post = newPost({
+        scheduledDate: proposal.suggestedDate || `${yearMonth}-01`,
+        scheduledTime: "09:00",
+        topic: proposal.topic || "Untitled topic",
+        funnelStage: proposal.funnelStage || null,
+        status: STATUS_PROPOSED,
+      });
+      await storage.savePost(post);
+      createdPosts.push({ ...post, rationale: proposal.rationale || null });
+    }
+  } catch (e) {
+    log(`FAILED while saving posts (created ${createdPosts.length} before failure): ${e.message}`);
+    if (context) context.error(`Failed saving generated posts: ${e.stack || e.message}`);
+    return {
+      status: 500,
+      body: { error: `Failed saving generated posts: ${e.message}`, partiallyCreated: createdPosts },
+    };
   }
 
+  log(`Done - created ${createdPosts.length} posts`);
   return { status: 201, body: { yearMonth, count: createdPosts.length, posts: createdPosts } };
 }
 
@@ -87,12 +106,20 @@ app.http("generateMonthlyPlan", {
   authLevel: "anonymous",
   route: "plan/generate",
   handler: async (request, context) => {
-    const body = await request.json();
-    const result = await generateMonthlyPlanLogic(
-      { yearMonth: body.yearMonth, numberOfPosts: body.numberOfPosts, industryContext: body.industryContext },
-      context
-    );
-    return json(result.status, result.body);
+    try {
+      const body = await request.json();
+      const result = await generateMonthlyPlanLogic(
+        { yearMonth: body.yearMonth, numberOfPosts: body.numberOfPosts, industryContext: body.industryContext },
+        context
+      );
+      return json(result.status, result.body);
+    } catch (e) {
+      // Catches anything unexpected (malformed request body, an uncaught
+      // exception anywhere in the logic) so the client always gets valid
+      // JSON back instead of an empty/broken response.
+      context.error(`Unhandled error in generateMonthlyPlan: ${e.stack || e.message}`);
+      return json(500, { error: `Unexpected server error: ${e.message}` });
+    }
   },
 });
 
