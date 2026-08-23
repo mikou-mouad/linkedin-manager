@@ -144,3 +144,73 @@ textarea {
   padding: 6px 10px;
   border-radius: 6px;
 }
+
+.plan-generator {
+  background: #fff;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+
+.plan-generator-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.industry-input {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+}
+
+.count-input {
+  width: 70px;
+  padding: 8px 6px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+}
+
+.plan-generator button {
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid #1e40af;
+  background: #1e40af;
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.plan-generator button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.plan-generator-hint {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.topic-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.funnel-tag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #ede9fe;
+  color: #5b21b6;
+  white-space: nowrap;
+}
+
+.status-proposed {
+  background: #fef9c3;
+  color: #854d0e;
+}

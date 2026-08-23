@@ -14,6 +14,9 @@ export default function App() {
   const [yearMonth, setYearMonth] = useState(currentYearMonth());
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [industryContext, setIndustryContext] = useState("");
+  const [numberOfPosts, setNumberOfPosts] = useState(12);
+  const [generatingPlan, setGeneratingPlan] = useState(false);
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
@@ -30,6 +33,31 @@ export default function App() {
   useEffect(() => {
     loadPosts();
   }, [loadPosts]);
+
+  async function generateMonthlyPlan() {
+    setGeneratingPlan(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/plan/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ yearMonth, numberOfPosts: Number(numberOfPosts), industryContext }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(`Plan generation failed: ${data.error || "unknown error"}`);
+        return;
+      }
+      const summary = data.posts
+        .map((p) => `[${p.funnelStage}] ${p.topic}${p.rationale ? ` — ${p.rationale}` : ""}`)
+        .join("\n");
+      alert(`Generated ${data.count} topic ideas for ${yearMonth}:\n\n${summary}`);
+      loadPosts();
+    } catch (e) {
+      alert(`Plan generation failed: ${e.message}`);
+    } finally {
+      setGeneratingPlan(false);
+    }
+  }
 
   async function updateField(post, field, value) {
     setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, [field]: value } : p)));
@@ -86,6 +114,36 @@ export default function App() {
   return (
     <div className="app">
       <h1>Monthly LinkedIn schedule</h1>
+
+      <div className="plan-generator">
+        <div className="plan-generator-row">
+          <input
+            type="text"
+            placeholder="Industry / context (e.g. B2B SaaS, project management tools)"
+            value={industryContext}
+            onChange={(e) => setIndustryContext(e.target.value)}
+            className="industry-input"
+          />
+          <input
+            type="number"
+            min="1"
+            max="30"
+            value={numberOfPosts}
+            onChange={(e) => setNumberOfPosts(e.target.value)}
+            className="count-input"
+            title="Number of topics to propose"
+          />
+          <button onClick={generateMonthlyPlan} disabled={generatingPlan}>
+            {generatingPlan ? "Generating..." : "Generate Monthly Plan"}
+          </button>
+        </div>
+        {generatingPlan && (
+          <p className="plan-generator-hint">
+            Searching the web and drafting topic ideas — this can take 20-40 seconds.
+          </p>
+        )}
+      </div>
+
       <div className="toolbar">
         <input type="month" value={yearMonth} onChange={(e) => setYearMonth(e.target.value)} />
         <button onClick={loadPosts}>Load</button>
@@ -99,11 +157,14 @@ export default function App() {
         <div className="post-card" key={post.id}>
           <div className="thumb">{post.imageBlobName ? "🖼" : ""}</div>
           <div className="post-details">
-            <input
-              className="topic-input"
-              value={post.topic}
-              onChange={(e) => updateField(post, "topic", e.target.value)}
-            />
+            <div className="topic-row">
+              <input
+                className="topic-input"
+                value={post.topic}
+                onChange={(e) => updateField(post, "topic", e.target.value)}
+              />
+              {post.funnelStage && <span className="funnel-tag">{post.funnelStage}</span>}
+            </div>
             <textarea
               value={post.copyText}
               onChange={(e) => updateField(post, "copyText", e.target.value)}
