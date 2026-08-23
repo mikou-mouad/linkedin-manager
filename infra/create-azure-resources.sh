@@ -95,31 +95,31 @@ echo "command shown in the infra script comments above (needs your email)."
 # 8. AI Foundry resource + model deployments, for the "generate monthly plan"
 # / content-generation / image-matching / image-generation features.
 #
-# Chosen models:
-#   - GPT-5        -> monthly planning + post content generation
-#   - GPT-5-mini   -> image matching (vision)
-#   - DALL-E       -> image generation (already deployed manually by you -
-#     this script just wires its endpoint/key into the SWA's app settings,
-#     see DALLE_ACCOUNT/DALLE_RG/DALLE_DEPLOYMENT_NAME below, fill those in)
+# Deployed models (all in the same Foundry resource/project):
+#   - gpt-5.6-sol   -> monthly planning + post content generation (flagship tier)
+#   - gpt-5.6-luna  -> image matching (vision, cheapest tier)
+#   - MAI-Image-2.5 -> image generation (fallback when nothing in the pool fits)
 #
-# These are first-party Azure OpenAI models - no Marketplace/partner terms
-# step needed (unlike the DeepSeek/Qwen partner models we tried earlier,
-# which aren't deployable on a Visual Studio Enterprise subscription).
+# These are first-party Azure OpenAI / Microsoft models - no Marketplace/
+# partner terms step needed (unlike the DeepSeek/Qwen partner models we
+# tried earlier, which aren't deployable on a Visual Studio Enterprise
+# subscription).
+#
+# NOTE: the Foundry resource name does NOT include "-ai-" - it's just
+# "linkedin-manager-${SUFFIX}", confirmed from the actual deployed resource.
 # ---------------------------------------------------------------------------
-FOUNDRY_ACCOUNT="linkedin-manager-ai-${SUFFIX}"
+FOUNDRY_ACCOUNT="linkedin-manager-${SUFFIX}"
 FOUNDRY_LOCATION="swedencentral"
 PROJECT_NAME="linkedin-manager-project"
 
-GPT_TEXT_DEPLOYMENT_NAME="gpt-5"
-GPT_TEXT_MODEL_NAME="gpt-5"
+TEXT_DEPLOYMENT_NAME="gpt-5.6-sol"
+TEXT_MODEL_NAME="gpt-5.6-sol"
 
-GPT_VISION_DEPLOYMENT_NAME="gpt-5-mini"
-GPT_VISION_MODEL_NAME="gpt-5-mini"
+VISION_DEPLOYMENT_NAME="gpt-5.6-luna"
+VISION_MODEL_NAME="gpt-5.6-luna"
 
-# --- Fill these in with your already-deployed DALL-E resource details ---
-DALLE_ACCOUNT="CHANGE_ME_dalle_account_name"
-DALLE_RG="CHANGE_ME_dalle_resource_group"
-DALLE_DEPLOYMENT_NAME="CHANGE_ME_dalle_deployment_name"
+IMAGE_GEN_DEPLOYMENT_NAME="MAI-Image-2.5"
+IMAGE_GEN_MODEL_NAME="MAI-Image-2.5"
 
 echo "Creating AI Foundry resource (with project management enabled)..."
 az cognitiveservices account create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --kind AIServices --sku S0 --location "$FOUNDRY_LOCATION" --custom-domain "$FOUNDRY_ACCOUNT" --allow-project-management --yes
@@ -127,26 +127,25 @@ az cognitiveservices account create --name "$FOUNDRY_ACCOUNT" --resource-group "
 echo "Creating Foundry project..."
 az cognitiveservices account project create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --project-name "$PROJECT_NAME" --location "$FOUNDRY_LOCATION"
 
-echo "Deploying GPT-5 (planning + content generation)..."
-az cognitiveservices account deployment create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --deployment-name "$GPT_TEXT_DEPLOYMENT_NAME" --model-name "$GPT_TEXT_MODEL_NAME" --model-format "OpenAI" --model-version "1" --sku-name "GlobalStandard" --sku-capacity 1
+echo "Deploying gpt-5.6-sol (planning + content generation)..."
+az cognitiveservices account deployment create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --deployment-name "$TEXT_DEPLOYMENT_NAME" --model-name "$TEXT_MODEL_NAME" --model-format "OpenAI" --model-version "1" --sku-name "GlobalStandard" --sku-capacity 1
 
-echo "Deploying GPT-5-mini (image matching / vision)..."
-az cognitiveservices account deployment create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --deployment-name "$GPT_VISION_DEPLOYMENT_NAME" --model-name "$GPT_VISION_MODEL_NAME" --model-format "OpenAI" --model-version "1" --sku-name "GlobalStandard" --sku-capacity 1
+echo "Deploying gpt-5.6-luna (image matching / vision)..."
+az cognitiveservices account deployment create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --deployment-name "$VISION_DEPLOYMENT_NAME" --model-name "$VISION_MODEL_NAME" --model-format "OpenAI" --model-version "1" --sku-name "GlobalStandard" --sku-capacity 1
+
+echo "Deploying MAI-Image-2.5 (image generation fallback)..."
+az cognitiveservices account deployment create --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --deployment-name "$IMAGE_GEN_DEPLOYMENT_NAME" --model-name "$IMAGE_GEN_MODEL_NAME" --model-format "Microsoft" --model-version "1" --sku-name "GlobalStandard" --sku-capacity 1
 
 FOUNDRY_ENDPOINT=$(az cognitiveservices account show --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --query properties.endpoint -o tsv)
 FOUNDRY_KEY=$(az cognitiveservices account keys list --name "$FOUNDRY_ACCOUNT" --resource-group "$RG" --query key1 -o tsv)
 
-echo "Fetching your already-deployed DALL-E resource's endpoint/key..."
-DALLE_ENDPOINT=$(az cognitiveservices account show --name "$DALLE_ACCOUNT" --resource-group "$DALLE_RG" --query properties.endpoint -o tsv)
-DALLE_KEY=$(az cognitiveservices account keys list --name "$DALLE_ACCOUNT" --resource-group "$DALLE_RG" --query key1 -o tsv)
-
-az staticwebapp appsettings set --name "$SWA" --setting-names "AI_FOUNDRY_ENDPOINT=$FOUNDRY_ENDPOINT" "AI_FOUNDRY_API_KEY=$FOUNDRY_KEY" "AI_FOUNDRY_TEXT_DEPLOYMENT=$GPT_TEXT_DEPLOYMENT_NAME" "AI_FOUNDRY_VISION_DEPLOYMENT=$GPT_VISION_DEPLOYMENT_NAME" "AI_DALLE_ENDPOINT=$DALLE_ENDPOINT" "AI_DALLE_API_KEY=$DALLE_KEY" "AI_DALLE_DEPLOYMENT=$DALLE_DEPLOYMENT_NAME"
+az staticwebapp appsettings set --name "$SWA" --setting-names "AI_FOUNDRY_ENDPOINT=$FOUNDRY_ENDPOINT" "AI_FOUNDRY_API_KEY=$FOUNDRY_KEY" "AI_FOUNDRY_TEXT_DEPLOYMENT=$TEXT_DEPLOYMENT_NAME" "AI_FOUNDRY_VISION_DEPLOYMENT=$VISION_DEPLOYMENT_NAME" "AI_FOUNDRY_IMAGE_GEN_DEPLOYMENT=$IMAGE_GEN_DEPLOYMENT_NAME"
 
 echo "AI Foundry resource created and wired into the Static Web App's settings."
 echo "  Endpoint: $FOUNDRY_ENDPOINT"
-echo "  Text (planning/content) deployment: $GPT_TEXT_DEPLOYMENT_NAME"
-echo "  Vision (matching) deployment:       $GPT_VISION_DEPLOYMENT_NAME"
-echo "  Image generation (DALL-E) endpoint: $DALLE_ENDPOINT"
+echo "  Text (planning/content) deployment: $TEXT_DEPLOYMENT_NAME"
+echo "  Vision (matching) deployment:       $VISION_DEPLOYMENT_NAME"
+echo "  Image generation deployment:        $IMAGE_GEN_DEPLOYMENT_NAME"
 
 echo ""
 echo "Done. Resources created/updated:"
