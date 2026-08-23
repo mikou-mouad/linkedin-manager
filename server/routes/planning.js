@@ -106,10 +106,11 @@ router.post("/generate", jsonBody, async (req, res) => {
         scheduledTime: "09:00",
         topic: proposal.topic || "Untitled topic",
         funnelStage: proposal.funnelStage || null,
+        rationale: proposal.rationale || null,
         status: STATUS_PROPOSED,
       });
       await storage.savePost(post);
-      createdPosts.push({ ...post, rationale: proposal.rationale || null });
+      createdPosts.push(post);
     }
   } catch (e) {
     console.error(`[generateMonthlyPlan] FAILED while saving posts:`, e);

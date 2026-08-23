@@ -22,7 +22,7 @@ function firstWeekdayOffset(yearMonth) {
   return (jsDay + 6) % 7;
 }
 
-function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel }) {
+function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel, onGenerateContent, generatingContent }) {
   return (
     <div className="post-card">
       <div className="thumb">{post.imageBlobName ? "🖼" : ""}</div>
@@ -35,6 +35,7 @@ function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel }) {
           />
           {post.funnelStage && <span className="funnel-tag">{post.funnelStage}</span>}
         </div>
+        {post.rationale && <p className="rationale-hint">{post.rationale}</p>}
         <textarea value={post.copyText} onChange={(e) => onUpdateField(post, "copyText", e.target.value)} />
         <div className="meta">
           <input
@@ -51,6 +52,11 @@ function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel }) {
           <input type="file" accept="image/*" onChange={(e) => onUploadImage(post, e.target.files[0])} />
         </div>
         <div className="actions">
+          {post.status === "proposed" && (
+            <button onClick={() => onGenerateContent(post)} disabled={generatingContent}>
+              {generatingContent ? "Writing..." : "Approve & Generate Content"}
+            </button>
+          )}
           <button disabled={post.status === "published"} onClick={() => onPublish(post)}>
             Publish now
           </button>
@@ -81,6 +87,7 @@ export default function App() {
   const [notice, setNotice] = useState(null);
   const [view, setView] = useState("calendar"); // "calendar" | "list"
   const [selectedPostId, setSelectedPostId] = useState(null);
+  const [generatingContentFor, setGeneratingContentFor] = useState(null);
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
@@ -189,6 +196,27 @@ export default function App() {
       method: "POST",
     });
     loadPosts();
+  }
+
+  async function generateContent(post) {
+    setGeneratingContentFor(post.id);
+    try {
+      const res = await fetch(`${API_BASE_URL}/posts/${post.scheduledDate.slice(0, 7)}/${post.id}/generate-content`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ industryContext }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setNotice({ type: "error", text: `Content generation failed: ${data.error || "unknown error"}` });
+        return;
+      }
+      loadPosts();
+    } catch (e) {
+      setNotice({ type: "error", text: `Content generation failed: ${e.message}` });
+    } finally {
+      setGeneratingContentFor(null);
+    }
   }
 
   const postsByDay = useMemo(() => {
@@ -395,6 +423,8 @@ export default function App() {
                 onUploadImage={uploadImage}
                 onPublish={publishNow}
                 onCancel={cancelPost}
+                onGenerateContent={generateContent}
+                generatingContent={generatingContentFor === selectedPost.id}
               />
             </div>
           )}
@@ -410,6 +440,8 @@ export default function App() {
             onUploadImage={uploadImage}
             onPublish={publishNow}
             onCancel={cancelPost}
+            onGenerateContent={generateContent}
+            generatingContent={generatingContentFor === post.id}
           />
         ))}
     </div>

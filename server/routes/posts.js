@@ -1,6 +1,7 @@
 const express = require("express");
 const storage = require("../shared/storage");
 const linkedinAuth = require("../shared/linkedinAuth");
+const aiFoundry = require("../shared/aiFoundry");
 const { newPost, STATUS_DRAFT, STATUS_PUBLISHED, STATUS_FAILED } = require("../shared/models");
 
 const router = express.Router();
@@ -31,7 +32,7 @@ router.put("/:yearMonth/:postId", jsonBody, async (req, res) => {
   const existing = await storage.getPost(postId, yearMonth);
   if (!existing) return res.status(404).send("Post not found");
 
-  const editableFields = ["scheduledDate", "scheduledTime", "topic", "copyText", "imageBlobName", "status", "targetType", "targetName"];
+  const editableFields = ["scheduledDate", "scheduledTime", "topic", "copyText", "imageBlobName", "status", "targetType", "targetName", "funnelStage", "rationale"];
   for (const field of editableFields) {
     if (field in req.body) existing[field] = req.body[field];
   }
@@ -68,6 +69,66 @@ router.post("/:yearMonth/:postId/attach-image", jsonBody, async (req, res) => {
   post.imageBlobName = usedBlobName;
   await storage.savePost(post);
   res.json(post);
+});
+
+function buildContentInstructions() {
+  return `You are a professional LinkedIn ghostwriter. Write a single LinkedIn post
+for the given topic, matching the tone appropriate to its funnel stage:
+- TOFU: educational/awareness tone, broadly appealing, no direct sales pitch.
+- MOFU: demonstrates expertise, gives an actionable insight or framework.
+- BOFU: proof-driven (results, case studies), includes a clear call to action.
+
+Guidelines:
+- 150-300 words.
+- Natural, conversational tone - not overly corporate or salesy, no buzzword
+  soup, sounds like a real person wrote it.
+- Short paragraphs / line breaks for LinkedIn readability.
+- Plain text only - no markdown formatting (no **, no #, no markdown links),
+  since LinkedIn doesn't render markdown.
+- 0-3 relevant hashtags at the very end, only if they genuinely add value.
+- Use the web_search tool if it would make the post more specific or
+  credible (a real stat, a genuinely current reference) - don't force it if
+  the topic doesn't need it.
+
+Respond with ONLY the post text itself - no title, no explanation, no
+surrounding quotes.`;
+}
+
+function buildContentInput(post, industryContext) {
+  let input = `Write a LinkedIn post for this topic: "${post.topic}".`;
+  if (post.funnelStage) input += `\nFunnel stage: ${post.funnelStage}.`;
+  if (post.rationale) input += `\nContext for why this topic was chosen: ${post.rationale}`;
+  if (industryContext) input += `\nIndustry/context: ${industryContext}`;
+  return input;
+}
+
+router.post("/:yearMonth/:postId/generate-content", jsonBody, async (req, res) => {
+  const { yearMonth, postId } = req.params;
+  const post = await storage.getPost(postId, yearMonth);
+  if (!post) return res.status(404).send("Post not found");
+
+  const industryContext = req.body.industryContext || "";
+
+  try {
+    const result = await aiFoundry.callResponses(
+      aiFoundry.textDeployment(),
+      buildContentInput(post, industryContext),
+      { instructions: buildContentInstructions(), webSearch: true, maxOutputTokens: 1500 }
+    );
+    let text = aiFoundry.extractOutputText(result).trim();
+    // Strip accidental markdown fences or surrounding quotes some models add
+    // despite instructions not to.
+    text = text.replace(/^```[a-z]*\n?/i, "").replace(/```$/, "").trim();
+    text = text.replace(/^"([\s\S]*)"$/, "$1").trim();
+
+    post.copyText = text;
+    post.status = STATUS_DRAFT;
+    await storage.savePost(post);
+    res.json(post);
+  } catch (e) {
+    console.error(`Failed to generate content for post ${post.id}:`, e);
+    res.status(500).json({ error: `Content generation failed: ${e.message}` });
+  }
 });
 
 router.post("/:yearMonth/:postId/publish", async (req, res) => {

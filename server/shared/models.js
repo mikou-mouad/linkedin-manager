@@ -23,6 +23,7 @@ function newPost(overrides = {}) {
     scheduledTime: overrides.scheduledTime || "09:00",
     topic: overrides.topic || "",
     funnelStage: overrides.funnelStage || null, // "TOFU" | "MOFU" | "BOFU"
+    rationale: overrides.rationale ?? null, // why this topic was suggested - context for content generation later
     copyText: overrides.copyText || "",
     imageBlobName: overrides.imageBlobName ?? null,
     status: overrides.status || STATUS_DRAFT,

@@ -302,6 +302,13 @@ textarea {
   color: #666;
 }
 
+.rationale-hint {
+  font-size: 0.75rem;
+  color: #666;
+  font-style: italic;
+  margin: 2px 0 4px;
+}
+
 .notice {
   padding: 8px 30px 8px 12px;
   border-radius: 6px;
