@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 const API_BASE_URL = "/api";
 
@@ -23,6 +23,16 @@ function firstWeekdayOffset(yearMonth) {
 }
 
 function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel, onGenerateContent, generatingContent }) {
+  const textareaRef = useRef(null);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (el) {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  }, [post.copyText]);
+
   return (
     <div className="post-card">
       <div className="thumb">{post.imageBlobName ? "🖼" : ""}</div>
@@ -36,7 +46,11 @@ function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel, onG
           {post.funnelStage && <span className="funnel-tag">{post.funnelStage}</span>}
         </div>
         {post.rationale && <p className="rationale-hint">{post.rationale}</p>}
-        <textarea value={post.copyText} onChange={(e) => onUpdateField(post, "copyText", e.target.value)} />
+        <textarea
+          ref={textareaRef}
+          value={post.copyText}
+          onChange={(e) => onUpdateField(post, "copyText", e.target.value)}
+        />
         <div className="meta">
           <input
             type="date"

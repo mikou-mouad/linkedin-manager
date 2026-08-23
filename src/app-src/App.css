@@ -75,6 +75,11 @@ textarea {
   border: 1px solid #ddd;
   border-radius: 4px;
   padding: 6px;
+  resize: none;
+  overflow: hidden;
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1.4;
 }
 
 .meta {
