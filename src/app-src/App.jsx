@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 const API_BASE_URL = "/api";
 
@@ -10,6 +10,60 @@ function statusClass(status) {
   return `status status-${status}`;
 }
 
+function daysInMonth(yearMonth) {
+  const [year, month] = yearMonth.split("-").map(Number);
+  return new Date(year, month, 0).getDate();
+}
+
+// 0 = Monday ... 6 = Sunday (week starts on Monday)
+function firstWeekdayOffset(yearMonth) {
+  const [year, month] = yearMonth.split("-").map(Number);
+  const jsDay = new Date(year, month - 1, 1).getDay(); // 0 = Sunday
+  return (jsDay + 6) % 7;
+}
+
+function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel }) {
+  return (
+    <div className="post-card">
+      <div className="thumb">{post.imageBlobName ? "🖼" : ""}</div>
+      <div className="post-details">
+        <div className="topic-row">
+          <input
+            className="topic-input"
+            value={post.topic}
+            onChange={(e) => onUpdateField(post, "topic", e.target.value)}
+          />
+          {post.funnelStage && <span className="funnel-tag">{post.funnelStage}</span>}
+        </div>
+        <textarea value={post.copyText} onChange={(e) => onUpdateField(post, "copyText", e.target.value)} />
+        <div className="meta">
+          <input
+            type="date"
+            value={post.scheduledDate}
+            onChange={(e) => onUpdateField(post, "scheduledDate", e.target.value)}
+          />
+          <input
+            type="time"
+            value={post.scheduledTime}
+            onChange={(e) => onUpdateField(post, "scheduledTime", e.target.value)}
+          />
+          <span className={statusClass(post.status)}>{post.status}</span>
+          <input type="file" accept="image/*" onChange={(e) => onUploadImage(post, e.target.files[0])} />
+        </div>
+        <div className="actions">
+          <button disabled={post.status === "published"} onClick={() => onPublish(post)}>
+            Publish now
+          </button>
+          <button disabled={post.status !== "scheduled"} onClick={() => onCancel(post)}>
+            Cancel
+          </button>
+        </div>
+        {post.status === "failed" && post.errorMessage && <p className="error-msg">{post.errorMessage}</p>}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [yearMonth, setYearMonth] = useState(currentYearMonth());
   const [posts, setPosts] = useState([]);
@@ -17,9 +71,11 @@ export default function App() {
   const [industryContext, setIndustryContext] = useState("");
   const [numberOfPosts, setNumberOfPosts] = useState(12);
   const [generatingPlan, setGeneratingPlan] = useState(false);
-  const [planResults, setPlanResults] = useState(null); // { count, posts } | null
+  const [planResults, setPlanResults] = useState(null);
   const [planError, setPlanError] = useState(null);
-  const [notice, setNotice] = useState(null); // small transient message, e.g. publish failures
+  const [notice, setNotice] = useState(null);
+  const [view, setView] = useState("calendar"); // "calendar" | "list"
+  const [selectedPostId, setSelectedPostId] = useState(null);
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
@@ -35,6 +91,7 @@ export default function App() {
 
   useEffect(() => {
     loadPosts();
+    setSelectedPostId(null);
   }, [loadPosts]);
 
   async function generateMonthlyPlan() {
@@ -70,19 +127,21 @@ export default function App() {
     });
   }
 
-  async function addPost() {
-    await fetch(`${API_BASE_URL}/posts`, {
+  async function addPost(dateOverride) {
+    const res = await fetch(`${API_BASE_URL}/posts`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        scheduledDate: `${yearMonth}-01`,
+        scheduledDate: dateOverride || `${yearMonth}-01`,
         scheduledTime: "09:00",
         topic: "New post",
         copyText: "",
         status: "draft",
       }),
     });
-    loadPosts();
+    const created = await res.json();
+    await loadPosts();
+    setSelectedPostId(created.id);
   }
 
   async function uploadImage(post, file) {
@@ -100,11 +159,11 @@ export default function App() {
     const res = await fetch(`${API_BASE_URL}/posts/${post.scheduledDate.slice(0, 7)}/${post.id}/publish`, {
       method: "POST",
     });
-    if (!res.ok) {
-      setNotice({ type: "error", text: "Publish failed - check the post's error message below." });
-    } else {
-      setNotice({ type: "success", text: "Published." });
-    }
+    setNotice(
+      res.ok
+        ? { type: "success", text: "Published." }
+        : { type: "error", text: "Publish failed - check the post's error message below." }
+    );
     loadPosts();
   }
 
@@ -113,6 +172,64 @@ export default function App() {
       method: "POST",
     });
     loadPosts();
+  }
+
+  const postsByDay = useMemo(() => {
+    const map = {};
+    for (const post of posts) {
+      const day = Number(post.scheduledDate.slice(8, 10));
+      if (!map[day]) map[day] = [];
+      map[day].push(post);
+    }
+    return map;
+  }, [posts]);
+
+  const selectedPost = posts.find((p) => p.id === selectedPostId) || null;
+
+  function renderCalendar() {
+    const total = daysInMonth(yearMonth);
+    const offset = firstWeekdayOffset(yearMonth);
+    const cells = [];
+    for (let i = 0; i < offset; i++) cells.push(null);
+    for (let d = 1; d <= total; d++) cells.push(d);
+
+    return (
+      <div className="calendar">
+        <div className="calendar-weekdays">
+          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+            <div key={d} className="calendar-weekday">{d}</div>
+          ))}
+        </div>
+        <div className="calendar-grid">
+          {cells.map((day, idx) => {
+            if (day === null) return <div key={`blank-${idx}`} className="calendar-cell calendar-cell-blank" />;
+            const dayPosts = postsByDay[day] || [];
+            const dateStr = `${yearMonth}-${String(day).padStart(2, "0")}`;
+            return (
+              <div key={day} className="calendar-cell">
+                <div className="calendar-cell-header">
+                  <span className="calendar-day-num">{day}</span>
+                  <button className="calendar-add-btn" title="Add post on this day" onClick={() => addPost(dateStr)}>
+                    +
+                  </button>
+                </div>
+                {dayPosts.map((post) => (
+                  <button
+                    key={post.id}
+                    className={`calendar-post-pill ${statusClass(post.status)} ${post.id === selectedPostId ? "calendar-post-pill-selected" : ""}`}
+                    onClick={() => setSelectedPostId(post.id)}
+                    title={post.topic}
+                  >
+                    {post.funnelStage && <span className="pill-funnel">{post.funnelStage}</span>}
+                    {post.topic || "Untitled"}
+                  </button>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -181,56 +298,52 @@ export default function App() {
       <div className="toolbar">
         <input type="month" value={yearMonth} onChange={(e) => setYearMonth(e.target.value)} />
         <button onClick={loadPosts}>Load</button>
-        <button onClick={addPost}>+ New post</button>
+        <button onClick={() => addPost()}>+ New post</button>
+        <div className="view-toggle">
+          <button className={view === "calendar" ? "view-btn-active" : ""} onClick={() => setView("calendar")}>
+            Calendar
+          </button>
+          <button className={view === "list" ? "view-btn-active" : ""} onClick={() => setView("list")}>
+            List
+          </button>
+        </div>
       </div>
 
       {loading && <p>Loading...</p>}
       {!loading && posts.length === 0 && <p>No posts yet for this month.</p>}
 
-      {posts.map((post) => (
-        <div className="post-card" key={post.id}>
-          <div className="thumb">{post.imageBlobName ? "🖼" : ""}</div>
-          <div className="post-details">
-            <div className="topic-row">
-              <input
-                className="topic-input"
-                value={post.topic}
-                onChange={(e) => updateField(post, "topic", e.target.value)}
+      {view === "calendar" && !loading && posts.length > 0 && (
+        <>
+          {renderCalendar()}
+          {selectedPost && (
+            <div className="selected-post-panel">
+              <div className="selected-post-header">
+                <strong>Editing post</strong>
+                <button className="dismiss-btn" onClick={() => setSelectedPostId(null)}>×</button>
+              </div>
+              <PostCard
+                post={selectedPost}
+                onUpdateField={updateField}
+                onUploadImage={uploadImage}
+                onPublish={publishNow}
+                onCancel={cancelPost}
               />
-              {post.funnelStage && <span className="funnel-tag">{post.funnelStage}</span>}
             </div>
-            <textarea
-              value={post.copyText}
-              onChange={(e) => updateField(post, "copyText", e.target.value)}
-            />
-            <div className="meta">
-              <input
-                type="date"
-                value={post.scheduledDate}
-                onChange={(e) => updateField(post, "scheduledDate", e.target.value)}
-              />
-              <input
-                type="time"
-                value={post.scheduledTime}
-                onChange={(e) => updateField(post, "scheduledTime", e.target.value)}
-              />
-              <span className={statusClass(post.status)}>{post.status}</span>
-              <input type="file" accept="image/*" onChange={(e) => uploadImage(post, e.target.files[0])} />
-            </div>
-            <div className="actions">
-              <button disabled={post.status === "published"} onClick={() => publishNow(post)}>
-                Publish now
-              </button>
-              <button disabled={post.status !== "scheduled"} onClick={() => cancelPost(post)}>
-                Cancel
-              </button>
-            </div>
-            {post.status === "failed" && post.errorMessage && (
-              <p className="error-msg">{post.errorMessage}</p>
-            )}
-          </div>
-        </div>
-      ))}
+          )}
+        </>
+      )}
+
+      {view === "list" &&
+        posts.map((post) => (
+          <PostCard
+            key={post.id}
+            post={post}
+            onUpdateField={updateField}
+            onUploadImage={uploadImage}
+            onPublish={publishNow}
+            onCancel={cancelPost}
+          />
+        ))}
     </div>
   );
 }

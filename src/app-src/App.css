@@ -287,3 +287,127 @@ textarea {
   padding: 2px 6px;
   line-height: 1;
 }
+
+.view-toggle {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+.view-toggle button {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #d0d0d0;
+  background: #fff;
+  cursor: pointer;
+}
+
+.view-btn-active {
+  background: #1e40af !important;
+  color: #fff;
+  border-color: #1e40af !important;
+}
+
+.calendar {
+  background: #fff;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: #f6f7f9;
+  border-bottom: 1px solid #e2e2e2;
+}
+
+.calendar-weekday {
+  padding: 8px;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #666;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.calendar-cell {
+  min-height: 90px;
+  border-right: 1px solid #eee;
+  border-bottom: 1px solid #eee;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.calendar-cell-blank {
+  background: #fafafa;
+}
+
+.calendar-cell-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.calendar-day-num {
+  font-size: 0.75rem;
+  color: #888;
+  font-weight: 600;
+}
+
+.calendar-add-btn {
+  border: none;
+  background: transparent;
+  color: #aaa;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.calendar-add-btn:hover {
+  color: #1e40af;
+}
+
+.calendar-post-pill {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: #eee;
+}
+
+.calendar-post-pill-selected {
+  outline: 2px solid #1e40af;
+}
+
+.pill-funnel {
+  font-weight: 700;
+  margin-right: 3px;
+}
+
+.selected-post-panel {
+  margin-top: 4px;
+}
+
+.selected-post-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
