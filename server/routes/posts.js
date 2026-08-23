@@ -45,6 +45,22 @@ router.delete("/:yearMonth/:postId", async (req, res) => {
   res.status(204).send();
 });
 
+router.get("/:yearMonth/:postId/image-file", async (req, res) => {
+  const { yearMonth, postId } = req.params;
+  const post = await storage.getPost(postId, yearMonth);
+  if (!post || !post.imageBlobName) return res.status(404).send("No image");
+
+  try {
+    const bytes = await storage.downloadImageBytes(post.imageBlobName);
+    const ext = post.imageBlobName.split(".").pop().toLowerCase();
+    const contentType = ext === "png" ? "image/png" : "image/jpeg";
+    res.setHeader("Content-Type", contentType);
+    res.send(bytes);
+  } catch (e) {
+    res.status(500).send("Failed to load image");
+  }
+});
+
 router.post("/:yearMonth/:postId/image", rawBody, async (req, res) => {
   const { yearMonth, postId } = req.params;
   const post = await storage.getPost(postId, yearMonth);
@@ -128,6 +144,84 @@ router.post("/:yearMonth/:postId/generate-content", jsonBody, async (req, res) =
   } catch (e) {
     console.error(`Failed to generate content for post ${post.id}:`, e);
     res.status(500).json({ error: `Content generation failed: ${e.message}` });
+  }
+});
+
+const IMAGE_MATCH_THRESHOLD = 50;
+
+function buildImagePromptFromTopic(post) {
+  let prompt = `Professional, editorial-style image representing this LinkedIn post topic: "${post.topic}".`;
+  if (post.funnelStage) prompt += ` Tone appropriate for a ${post.funnelStage} (funnel stage) business post.`;
+  if (post.rationale) prompt += ` Context: ${post.rationale}`;
+  prompt += ` Modern, clean, suitable for a professional social media feed. No text overlay, no logos, no watermarks.`;
+  return prompt;
+}
+
+router.post("/:yearMonth/:postId/generate-image", jsonBody, async (req, res) => {
+  const { yearMonth, postId } = req.params;
+  const post = await storage.getPost(postId, yearMonth);
+  if (!post) return res.status(404).send("Post not found");
+
+  try {
+    const pool = await storage.listPoolImages();
+    let bestMatch = null;
+
+    if (pool.length > 0) {
+      const candidates = [];
+      for (const item of pool) {
+        const bytes = await storage.downloadImageBytes(item.blobName);
+        candidates.push({
+          blobName: item.blobName,
+          base64: bytes.toString("base64"),
+          mimeType: item.contentType || "image/jpeg",
+        });
+      }
+
+      const matchInstructions = `You are matching an image from a library to a LinkedIn post topic.
+For each image provided (in the order shown, first image = index 0), score how
+well it visually fits the given topic, from 0 (no fit) to 100 (perfect fit).
+Respond with ONLY a JSON array (no markdown fences, no commentary) of objects
+shaped like: [{"index": 0, "score": 73}, {"index": 1, "score": 12}]`;
+
+      const matchText = `Topic: "${post.topic}"${post.rationale ? `\nContext: ${post.rationale}` : ""}\n\nScore each of the ${candidates.length} images below against this topic.`;
+
+      const visionInput = aiFoundry.buildVisionInput(
+        matchText,
+        candidates.map((c) => ({ base64: c.base64, mimeType: c.mimeType }))
+      );
+
+      const result = await aiFoundry.callResponses(aiFoundry.visionDeployment(), visionInput, {
+        instructions: matchInstructions,
+        maxOutputTokens: 1000,
+      });
+      const text = aiFoundry.extractOutputText(result);
+      const scores = aiFoundry.parseJsonFromText(text);
+
+      if (Array.isArray(scores) && scores.length > 0) {
+        const top = scores.reduce((best, s) => (s.score > best.score ? s : best), scores[0]);
+        if (top.score >= IMAGE_MATCH_THRESHOLD && candidates[top.index]) {
+          bestMatch = { blobName: candidates[top.index].blobName, score: top.score };
+        }
+      }
+    }
+
+    if (bestMatch) {
+      const usedBlobName = await storage.moveImageToUsed(bestMatch.blobName, postId);
+      post.imageBlobName = usedBlobName;
+      await storage.savePost(post);
+      return res.json({ post, source: "pool", matchScore: bestMatch.score });
+    }
+
+    // No pool image matched well enough (or pool is empty) - generate one.
+    const prompt = buildImagePromptFromTopic(post);
+    const imageBytes = await aiFoundry.callImageGeneration(aiFoundry.imageGenDeployment(), prompt);
+    const blobName = await storage.uploadUsedImageForPost(postId, imageBytes, "image/png");
+    post.imageBlobName = blobName;
+    await storage.savePost(post);
+    res.json({ post, source: "generated" });
+  } catch (e) {
+    console.error(`Failed to generate/match image for post ${post.id}:`, e);
+    res.status(500).json({ error: `Image generation failed: ${e.message}` });
   }
 });
 

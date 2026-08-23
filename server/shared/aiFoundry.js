@@ -88,6 +88,61 @@ function parseJsonFromText(text) {
   return JSON.parse(jsonCandidate);
 }
 
+/**
+ * Builds a Responses API "input" array with text + one or more images, for
+ * use with vision-capable deployments (e.g. gpt-5.6-luna).
+ * @param {string} text
+ * @param {Array<{base64: string, mimeType: string}>} images
+ */
+function buildVisionInput(text, images) {
+  const content = [{ type: "input_text", text }];
+  for (const img of images) {
+    content.push({ type: "input_image", image_url: `data:${img.mimeType};base64,${img.base64}` });
+  }
+  return [{ role: "user", content }];
+}
+
+/**
+ * Calls an MAI image generation deployment.
+ * NOTE: MAI image models use a DIFFERENT endpoint shape than the standard
+ * OpenAI-compatible one - /mai/v1/images/generations, with width/height
+ * params instead of a "size" string. Response shape is best-effort based on
+ * available docs (checked for b64_json under a few possible keys) - this
+ * hasn't been verified against the real endpoint yet, so log the raw
+ * response on an unexpected shape rather than silently failing.
+ */
+async function callImageGeneration(deploymentName, prompt, width = 1024, height = 1024) {
+  const base = endpoint().replace(/\/$/, "");
+  const url = `${base}/mai/v1/images/generations`;
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "api-key": apiKey(),
+    },
+    body: JSON.stringify({ model: deploymentName, prompt, width, height }),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text();
+    throw new Error(`AI Foundry image generation error (${resp.status}): ${errText}`);
+  }
+
+  const result = await resp.json();
+  const b64 =
+    result?.data?.[0]?.b64_json ||
+    result?.data?.[0]?.base64 ||
+    result?.image?.b64_json ||
+    result?.b64_json;
+
+  if (!b64) {
+    throw new Error(`Unexpected image generation response shape: ${JSON.stringify(result).slice(0, 500)}`);
+  }
+
+  return Buffer.from(b64, "base64");
+}
+
 module.exports = {
   textDeployment,
   visionDeployment,
@@ -95,4 +150,6 @@ module.exports = {
   callResponses,
   extractOutputText,
   parseJsonFromText,
+  buildVisionInput,
+  callImageGeneration,
 };

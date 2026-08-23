@@ -22,7 +22,7 @@ function firstWeekdayOffset(yearMonth) {
   return (jsDay + 6) % 7;
 }
 
-function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel, onGenerateContent, generatingContent }) {
+function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel, onGenerateContent, generatingContent, onGenerateImage, generatingImage }) {
   const textareaRef = useRef(null);
 
   useEffect(() => {
@@ -35,7 +35,13 @@ function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel, onG
 
   return (
     <div className="post-card">
-      <div className="thumb">{post.imageBlobName ? "🖼" : ""}</div>
+      <div className="thumb">
+        {post.imageBlobName ? (
+          <img src={`/api/posts/${post.scheduledDate.slice(0, 7)}/${post.id}/image-file`} alt="" className="thumb-img" />
+        ) : (
+          ""
+        )}
+      </div>
       <div className="post-details">
         <div className="topic-row">
           <input
@@ -64,6 +70,9 @@ function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel, onG
           />
           <span className={statusClass(post.status)}>{post.status}</span>
           <input type="file" accept="image/*" onChange={(e) => onUploadImage(post, e.target.files[0])} />
+          <button className="find-image-btn" onClick={() => onGenerateImage(post)} disabled={generatingImage}>
+            {generatingImage ? "Finding image..." : post.imageBlobName ? "Replace image" : "Find/generate image"}
+          </button>
         </div>
         <div className="actions">
           {post.status === "proposed" && (
@@ -102,6 +111,7 @@ export default function App() {
   const [view, setView] = useState("calendar"); // "calendar" | "list"
   const [selectedPostId, setSelectedPostId] = useState(null);
   const [generatingContentFor, setGeneratingContentFor] = useState(null);
+  const [generatingImageFor, setGeneratingImageFor] = useState(null);
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
@@ -230,6 +240,33 @@ export default function App() {
       setNotice({ type: "error", text: `Content generation failed: ${e.message}` });
     } finally {
       setGeneratingContentFor(null);
+    }
+  }
+
+  async function generateImage(post) {
+    setGeneratingImageFor(post.id);
+    try {
+      const res = await fetch(`${API_BASE_URL}/posts/${post.scheduledDate.slice(0, 7)}/${post.id}/generate-image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setNotice({ type: "error", text: `Image generation failed: ${data.error || "unknown error"}` });
+        return;
+      }
+      setNotice({
+        type: "success",
+        text:
+          data.source === "pool"
+            ? `Found a matching image in your library (${data.matchScore}% match).`
+            : "No good match in your library - generated a new image.",
+      });
+      loadPosts();
+    } catch (e) {
+      setNotice({ type: "error", text: `Image generation failed: ${e.message}` });
+    } finally {
+      setGeneratingImageFor(null);
     }
   }
 
@@ -439,6 +476,8 @@ export default function App() {
                 onCancel={cancelPost}
                 onGenerateContent={generateContent}
                 generatingContent={generatingContentFor === selectedPost.id}
+                onGenerateImage={generateImage}
+                generatingImage={generatingImageFor === selectedPost.id}
               />
             </div>
           )}
@@ -456,6 +495,8 @@ export default function App() {
             onCancel={cancelPost}
             onGenerateContent={generateContent}
             generatingContent={generatingContentFor === post.id}
+            onGenerateImage={generateImage}
+            generatingImage={generatingImageFor === post.id}
           />
         ))}
     </div>
