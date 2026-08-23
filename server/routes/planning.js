@@ -1,11 +1,10 @@
-const { app } = require("@azure/functions");
+const express = require("express");
 const storage = require("../shared/storage");
 const aiFoundry = require("../shared/aiFoundry");
 const { newPost, STATUS_PROPOSED } = require("../shared/models");
 
-function json(status, data) {
-  return { status, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) };
-}
+const router = express.Router();
+const jsonBody = express.json();
 
 function buildInstructions() {
   return `You are a LinkedIn content strategist. You propose a month's worth of post
@@ -41,16 +40,16 @@ Industry/context: ${industryContext || "not specified - use general professional
 Search the web for what's actually happening in this space right now before proposing topics.`;
 }
 
-async function generateMonthlyPlanLogic({ yearMonth, numberOfPosts, industryContext }, context) {
-  const log = (msg) => { if (context) context.log(`[generateMonthlyPlan] ${msg}`); };
+router.post("/generate", jsonBody, async (req, res) => {
+  const { yearMonth } = req.body;
+  const numberOfPosts = req.body.numberOfPosts || 12;
+  const industryContext = req.body.industryContext || "";
 
   if (!yearMonth) {
-    return { status: 400, body: { error: "Missing 'yearMonth' (e.g. '2026-09')" } };
+    return res.status(400).json({ error: "Missing 'yearMonth' (e.g. '2026-09')" });
   }
-  numberOfPosts = numberOfPosts || 12;
-  industryContext = industryContext || "";
 
-  log(`Starting - yearMonth=${yearMonth} numberOfPosts=${numberOfPosts}`);
+  console.log(`[generateMonthlyPlan] Starting - yearMonth=${yearMonth} numberOfPosts=${numberOfPosts}`);
 
   let proposedTopics;
   try {
@@ -60,19 +59,16 @@ async function generateMonthlyPlanLogic({ yearMonth, numberOfPosts, industryCont
       buildInput({ yearMonth, numberOfPosts, industryContext }),
       { instructions: buildInstructions(), webSearch: true, maxOutputTokens: 4000 }
     );
-    log(`AI Foundry call completed in ${Date.now() - startedAt}ms`);
+    console.log(`[generateMonthlyPlan] AI Foundry call completed in ${Date.now() - startedAt}ms`);
     const text = aiFoundry.extractOutputText(result);
-    log(`Extracted output text (${text.length} chars)`);
     proposedTopics = aiFoundry.parseJsonFromText(text);
   } catch (e) {
-    log(`FAILED during AI call/parse: ${e.message}`);
-    if (context) context.error(`Monthly plan generation failed: ${e.stack || e.message}`);
-    return { status: 500, body: { error: `Plan generation failed: ${e.message}` } };
+    console.error(`[generateMonthlyPlan] FAILED during AI call/parse:`, e);
+    return res.status(500).json({ error: `Plan generation failed: ${e.message}` });
   }
 
   if (!Array.isArray(proposedTopics)) {
-    log(`Model output was not an array: ${JSON.stringify(proposedTopics).slice(0, 300)}`);
-    return { status: 500, body: { error: "Model did not return a JSON array as expected", raw: proposedTopics } };
+    return res.status(500).json({ error: "Model did not return a JSON array as expected", raw: proposedTopics });
   }
 
   const createdPosts = [];
@@ -89,38 +85,12 @@ async function generateMonthlyPlanLogic({ yearMonth, numberOfPosts, industryCont
       createdPosts.push({ ...post, rationale: proposal.rationale || null });
     }
   } catch (e) {
-    log(`FAILED while saving posts (created ${createdPosts.length} before failure): ${e.message}`);
-    if (context) context.error(`Failed saving generated posts: ${e.stack || e.message}`);
-    return {
-      status: 500,
-      body: { error: `Failed saving generated posts: ${e.message}`, partiallyCreated: createdPosts },
-    };
+    console.error(`[generateMonthlyPlan] FAILED while saving posts:`, e);
+    return res.status(500).json({ error: `Failed saving generated posts: ${e.message}`, partiallyCreated: createdPosts });
   }
 
-  log(`Done - created ${createdPosts.length} posts`);
-  return { status: 201, body: { yearMonth, count: createdPosts.length, posts: createdPosts } };
-}
-
-app.http("generateMonthlyPlan", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "plan/generate",
-  handler: async (request, context) => {
-    try {
-      const body = await request.json();
-      const result = await generateMonthlyPlanLogic(
-        { yearMonth: body.yearMonth, numberOfPosts: body.numberOfPosts, industryContext: body.industryContext },
-        context
-      );
-      return json(result.status, result.body);
-    } catch (e) {
-      // Catches anything unexpected (malformed request body, an uncaught
-      // exception anywhere in the logic) so the client always gets valid
-      // JSON back instead of an empty/broken response.
-      context.error(`Unhandled error in generateMonthlyPlan: ${e.stack || e.message}`);
-      return json(500, { error: `Unexpected server error: ${e.message}` });
-    }
-  },
+  console.log(`[generateMonthlyPlan] Done - created ${createdPosts.length} posts`);
+  res.status(201).json({ yearMonth, count: createdPosts.length, posts: createdPosts });
 });
 
-module.exports = { generateMonthlyPlanLogic };
+module.exports = router;
