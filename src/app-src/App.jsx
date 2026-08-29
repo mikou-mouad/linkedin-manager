@@ -10,6 +10,41 @@ function statusClass(status) {
   return `status status-${status}`;
 }
 
+// Fixed palette of distinct, legible (dark-text-on-light-background) colors,
+// deterministically assigned per account so the same account always gets
+// the same color regardless of list order.
+const ACCOUNT_COLOR_PALETTE = [
+  { bg: "#dbeafe", text: "#1e40af" }, // blue
+  { bg: "#dcfce7", text: "#166534" }, // green
+  { bg: "#fef3c7", text: "#92400e" }, // amber
+  { bg: "#fce7f3", text: "#9d174d" }, // pink
+  { bg: "#ede9fe", text: "#5b21b6" }, // purple
+  { bg: "#ffedd5", text: "#9a3412" }, // orange
+  { bg: "#cffafe", text: "#155e75" }, // cyan
+  { bg: "#fee2e2", text: "#991b1b" }, // red
+  { bg: "#e0e7ff", text: "#3730a3" }, // indigo
+  { bg: "#d1fae5", text: "#065f46" }, // teal
+];
+
+const STATUS_DOT_COLOR = {
+  proposed: "#ca8a04",
+  draft: "#9ca3af",
+  scheduled: "#2563eb",
+  published: "#16a34a",
+  failed: "#dc2626",
+};
+
+const UNASSIGNED_COLOR = { bg: "#e5e7eb", text: "#4b5563" };
+
+function colorForAccount(accountId) {
+  if (!accountId) return UNASSIGNED_COLOR;
+  let hash = 0;
+  for (let i = 0; i < accountId.length; i++) {
+    hash = (hash * 31 + accountId.charCodeAt(i)) >>> 0;
+  }
+  return ACCOUNT_COLOR_PALETTE[hash % ACCOUNT_COLOR_PALETTE.length];
+}
+
 function daysInMonth(yearMonth) {
   const [year, month] = yearMonth.split("-").map(Number);
   return new Date(year, month, 0).getDate();
@@ -364,17 +399,22 @@ export default function App() {
                     +
                   </button>
                 </div>
-                {dayPosts.map((post) => (
-                  <button
-                    key={post.id}
-                    className={`calendar-post-pill ${statusClass(post.status)} ${post.id === selectedPostId ? "calendar-post-pill-selected" : ""}`}
-                    onClick={() => setSelectedPostId(post.id)}
-                    title={post.topic}
-                  >
-                    {post.funnelStage && <span className="pill-funnel">{post.funnelStage}</span>}
-                    {post.topic || "Untitled"}
-                  </button>
-                ))}
+                {dayPosts.map((post) => {
+                  const color = colorForAccount(post.targetAccountId);
+                  return (
+                    <button
+                      key={post.id}
+                      className={`calendar-post-pill ${post.id === selectedPostId ? "calendar-post-pill-selected" : ""}`}
+                      style={{ backgroundColor: color.bg, color: color.text }}
+                      onClick={() => setSelectedPostId(post.id)}
+                      title={post.topic}
+                    >
+                      <span className="pill-status-dot" style={{ backgroundColor: STATUS_DOT_COLOR[post.status] || "#999" }} />
+                      {post.funnelStage && <span className="pill-funnel">{post.funnelStage}</span>}
+                      {post.topic || "Untitled"}
+                    </button>
+                  );
+                })}
               </div>
             );
           })}
@@ -545,6 +585,21 @@ export default function App() {
       {view === "calendar" && !loading && posts.length > 0 && (
         <>
           {renderCalendar()}
+          <div className="calendar-legend">
+            <span className="calendar-legend-item">
+              <span className="legend-swatch" style={{ backgroundColor: UNASSIGNED_COLOR.bg }} />
+              Unassigned
+            </span>
+            {accounts.map((acc) => {
+              const color = colorForAccount(acc.accountId);
+              return (
+                <span key={acc.accountId} className="calendar-legend-item">
+                  <span className="legend-swatch" style={{ backgroundColor: color.bg }} />
+                  {acc.displayName}
+                </span>
+              );
+            })}
+          </div>
           {selectedPost && (
             <div className="selected-post-panel">
               <div className="selected-post-header">
