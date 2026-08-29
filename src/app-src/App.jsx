@@ -10,25 +10,15 @@ function statusClass(status) {
   return `status status-${status}`;
 }
 
-// Fixed palette of distinct, legible (dark-text-on-light-background) colors -
-// used as a fallback for any account not explicitly assigned a color below.
+// Cycled by position in the current accounts list (1st=blue, 2nd=green,
+// 3rd=yellow, then repeats) - guarantees every account currently in the
+// list gets a visually distinct color from its neighbors, unlike name/hash
+// based assignment which can collide.
 const ACCOUNT_COLOR_PALETTE = [
   { bg: "#dbeafe", text: "#1e40af" }, // blue
   { bg: "#dcfce7", text: "#166534" }, // green
   { bg: "#fef3c7", text: "#92400e" }, // yellow
 ];
-
-const BLUE = { bg: "#dbeafe", text: "#1e40af" };
-const GREEN = { bg: "#dcfce7", text: "#166534" };
-const YELLOW = { bg: "#fef3c7", text: "#92400e" };
-
-// Explicit color assignments by account display name (case-insensitive).
-// Anything not listed here falls back to a hash-based pick from the palette.
-const MANUAL_COLOR_OVERRIDES = {
-  "clouddevfusion": YELLOW,
-  "mouad": GREEN,
-  "ahmed": BLUE,
-};
 
 const STATUS_DOT_COLOR = {
   proposed: "#ca8a04",
@@ -40,15 +30,11 @@ const STATUS_DOT_COLOR = {
 
 const UNASSIGNED_COLOR = { bg: "#e5e7eb", text: "#4b5563" };
 
-function colorForAccount(accountId, displayName) {
+function colorForAccount(accountId, accounts) {
   if (!accountId) return UNASSIGNED_COLOR;
-  const key = (displayName || "").trim().toLowerCase();
-  if (MANUAL_COLOR_OVERRIDES[key]) return MANUAL_COLOR_OVERRIDES[key];
-  let hash = 0;
-  for (let i = 0; i < accountId.length; i++) {
-    hash = (hash * 31 + accountId.charCodeAt(i)) >>> 0;
-  }
-  return ACCOUNT_COLOR_PALETTE[hash % ACCOUNT_COLOR_PALETTE.length];
+  const index = accounts.findIndex((a) => a.accountId === accountId);
+  if (index === -1) return UNASSIGNED_COLOR; // account no longer exists
+  return ACCOUNT_COLOR_PALETTE[index % ACCOUNT_COLOR_PALETTE.length];
 }
 
 function daysInMonth(yearMonth) {
@@ -100,7 +86,16 @@ function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel, onG
             value={post.topic}
             onChange={(e) => onUpdateField(post, "topic", e.target.value)}
           />
-          {post.funnelStage && <span className="funnel-tag">{post.funnelStage}</span>}
+          <select
+            className={`funnel-select ${post.funnelStage ? `funnel-select-${post.funnelStage.toLowerCase()}` : ""}`}
+            value={post.funnelStage || ""}
+            onChange={(e) => onUpdateField(post, "funnelStage", e.target.value || null)}
+          >
+            <option value="">No stage</option>
+            <option value="TOFU">TOFU</option>
+            <option value="MOFU">MOFU</option>
+            <option value="BOFU">BOFU</option>
+          </select>
         </div>
         <div className="rationale-row">
           <span className="rationale-label">Why this topic:</span>
@@ -417,8 +412,7 @@ export default function App() {
                   </button>
                 </div>
                 {dayPosts.map((post) => {
-                  const assignedAcc = accounts.find((a) => a.accountId === post.targetAccountId);
-                  const color = colorForAccount(post.targetAccountId, assignedAcc?.displayName);
+                  const color = colorForAccount(post.targetAccountId, accounts);
                   return (
                     <button
                       key={post.id}
@@ -609,7 +603,7 @@ export default function App() {
               Unassigned
             </span>
             {accounts.map((acc) => {
-              const color = colorForAccount(acc.accountId, acc.displayName);
+              const color = colorForAccount(acc.accountId, accounts);
               return (
                 <span key={acc.accountId} className="calendar-legend-item">
                   <span className="legend-swatch" style={{ backgroundColor: color.bg }} />
