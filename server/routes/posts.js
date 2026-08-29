@@ -22,6 +22,9 @@ router.post("/", jsonBody, async (req, res) => {
     copyText: body.copyText || "",
     imageBlobName: body.imageBlobName || null,
     status: body.status || "scheduled",
+    targetAccountId: body.targetAccountId || null,
+    funnelStage: body.funnelStage || null,
+    rationale: body.rationale || null,
   });
   await storage.savePost(post);
   res.status(201).json(post);
@@ -229,6 +232,24 @@ router.post("/:yearMonth/:postId/publish", async (req, res) => {
   const { yearMonth, postId } = req.params;
   const post = await storage.getPost(postId, yearMonth);
   if (!post) return res.status(404).send("Post not found");
+
+  if (!post.targetAccountId) {
+    return res.status(400).json({ error: "No account assigned to this post - assign one first." });
+  }
+
+  const account = await storage.getAccount(post.targetAccountId);
+  if (!account) {
+    return res.status(400).json({ error: `Assigned account '${post.targetAccountId}' no longer exists.` });
+  }
+
+  // Manual (name-only) accounts have no real LinkedIn token - publishing
+  // happens by hand on LinkedIn itself, so this just marks the post done.
+  if (account.isManual) {
+    post.status = STATUS_PUBLISHED;
+    post.errorMessage = null;
+    await storage.savePost(post);
+    return res.json(post);
+  }
 
   try {
     let imageBytes = null;

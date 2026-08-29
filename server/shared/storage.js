@@ -170,9 +170,34 @@ async function saveAccount({ accountId, accessToken, refreshToken, expiresAt, me
       expiresAt,
       memberUrn,
       displayName: displayName || memberUrn,
+      isManual: false,
     },
     "Merge"
   );
+}
+
+/**
+ * Creates a "manual" account - just a name, no real LinkedIn OAuth token.
+ * Used for tracking who a post is for before that person's real account can
+ * be connected (e.g. still waiting on API approval for org posting), or for
+ * anyone who'll publish manually themselves rather than through this app.
+ */
+async function saveManualAccount(accountId, displayName) {
+  const client = await tableClient(TOKEN_TABLE_NAME);
+  await client.upsertEntity(
+    {
+      partitionKey: "linkedin",
+      rowKey: accountId,
+      displayName,
+      isManual: true,
+    },
+    "Merge"
+  );
+}
+
+async function deleteAccount(accountId) {
+  const client = await tableClient(TOKEN_TABLE_NAME);
+  await client.deleteEntity("linkedin", accountId);
 }
 
 async function getAccount(accountId) {
@@ -194,7 +219,8 @@ async function listAccounts() {
     accounts.push({
       accountId: entity.rowKey,
       displayName: entity.displayName || entity.memberUrn,
-      memberUrn: entity.memberUrn,
+      memberUrn: entity.memberUrn || null,
+      isManual: !!entity.isManual,
     });
   }
   return accounts;
@@ -212,6 +238,8 @@ module.exports = {
   uploadUsedImageForPost,
   downloadImageBytes,
   saveAccount,
+  saveManualAccount,
+  deleteAccount,
   getAccount,
   listAccounts,
   IMAGE_CONTAINER_NAME,

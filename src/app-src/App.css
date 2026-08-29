@@ -102,8 +102,58 @@ textarea {
 .account-chip {
   background: #eef2ff;
   color: #3730a3;
-  padding: 3px 10px;
+  padding: 3px 6px 3px 10px;
   border-radius: 12px;
+  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.account-chip-manual {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.manual-badge {
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+.remove-account-btn {
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.5;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.remove-account-btn:hover {
+  opacity: 1;
+}
+
+.add-account-form {
+  display: flex;
+  gap: 4px;
+}
+
+.add-account-form input {
+  padding: 4px 8px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  width: 160px;
+}
+
+.add-account-form button {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #d0d0d0;
+  background: #fff;
+  cursor: pointer;
   font-size: 0.8rem;
 }
 
@@ -138,14 +188,25 @@ textarea {
   width: 100%;
   min-height: 60px;
   margin-top: 6px;
-  border: 1px solid #ddd;
+  border: 1px solid #ccc;
   border-radius: 4px;
-  padding: 6px;
+  padding: 8px;
   resize: none;
   overflow: hidden;
   font-family: inherit;
   font-size: 0.9rem;
   line-height: 1.4;
+  background: #fff;
+}
+
+.post-details textarea::placeholder {
+  color: #999;
+  font-style: italic;
+}
+
+.post-details textarea:focus {
+  outline: 2px solid #1e40af;
+  outline-offset: -1px;
 }
 
 .meta {
@@ -373,11 +434,18 @@ textarea {
   color: #666;
 }
 
-.rationale-hint {
+.rationale-box {
   font-size: 0.75rem;
   color: #666;
-  font-style: italic;
-  margin: 2px 0 4px;
+  background: #f6f7f9;
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin: 4px 0;
+}
+
+.rationale-label {
+  font-weight: 600;
+  color: #444;
 }
 
 .notice {

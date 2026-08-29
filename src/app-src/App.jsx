@@ -24,6 +24,7 @@ function firstWeekdayOffset(yearMonth) {
 
 function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel, onGenerateContent, generatingContent, onGenerateImage, generatingImage, accounts }) {
   const textareaRef = useRef(null);
+  const assignedAccount = accounts.find((a) => a.accountId === post.targetAccountId) || null;
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -51,10 +52,15 @@ function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel, onG
           />
           {post.funnelStage && <span className="funnel-tag">{post.funnelStage}</span>}
         </div>
-        {post.rationale && <p className="rationale-hint">{post.rationale}</p>}
+        {post.rationale && (
+          <div className="rationale-box">
+            <span className="rationale-label">Why this topic:</span> {post.rationale}
+          </div>
+        )}
         <textarea
           ref={textareaRef}
           value={post.copyText}
+          placeholder="Post content goes here — click &quot;Approve &amp; Generate Content&quot; to draft it with AI, or write it yourself."
           onChange={(e) => onUpdateField(post, "copyText", e.target.value)}
         />
         <div className="meta">
@@ -93,7 +99,7 @@ function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel, onG
             </button>
           )}
           <button disabled={post.status === "published"} onClick={() => onPublish(post)}>
-            Publish now
+            {assignedAccount?.isManual ? "Mark as published" : "Publish now"}
           </button>
           <button disabled={post.status !== "scheduled"} onClick={() => onCancel(post)}>
             Cancel
@@ -125,6 +131,7 @@ export default function App() {
   const [generatingContentFor, setGeneratingContentFor] = useState(null);
   const [generatingImageFor, setGeneratingImageFor] = useState(null);
   const [accounts, setAccounts] = useState([]);
+  const [newAccountName, setNewAccountName] = useState("");
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
@@ -142,6 +149,24 @@ export default function App() {
     const res = await fetch(`${API_BASE_URL}/accounts`);
     setAccounts(await res.json());
   }, []);
+
+  async function addManualAccount() {
+    const displayName = newAccountName.trim();
+    if (!displayName) return;
+    await fetch(`${API_BASE_URL}/accounts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ displayName }),
+    });
+    setNewAccountName("");
+    loadAccounts();
+  }
+
+  async function removeAccount(accountId) {
+    if (!window.confirm("Remove this account? Posts already assigned to it will keep the reference but publishing will fail until reassigned.")) return;
+    await fetch(`${API_BASE_URL}/accounts/${accountId}`, { method: "DELETE" });
+    loadAccounts();
+  }
 
   useEffect(() => {
     loadPosts();
@@ -225,7 +250,11 @@ export default function App() {
   }
 
   async function publishNow(post) {
-    if (!window.confirm("Publish this post to LinkedIn now? This happens immediately and can't be undone.")) return;
+    const assignedAccount = accounts.find((a) => a.accountId === post.targetAccountId);
+    const confirmText = assignedAccount?.isManual
+      ? "Mark this post as published? (You'll need to actually post it on LinkedIn yourself.)"
+      : "Publish this post to LinkedIn now? This happens immediately and can't be undone.";
+    if (!window.confirm(confirmText)) return;
     const res = await fetch(`${API_BASE_URL}/posts/${post.scheduledDate.slice(0, 7)}/${post.id}/publish`, {
       method: "POST",
     });
@@ -465,12 +494,31 @@ export default function App() {
       )}
 
       <div className="accounts-panel">
-        <strong>Connected LinkedIn accounts:</strong>
+        <strong>Accounts:</strong>
         {accounts.length === 0 && <span className="accounts-empty"> none yet</span>}
         {accounts.map((acc) => (
-          <span key={acc.accountId} className="account-chip">{acc.displayName}</span>
+          <span key={acc.accountId} className={`account-chip ${acc.isManual ? "account-chip-manual" : ""}`}>
+            {acc.displayName}
+            {acc.isManual && <span className="manual-badge"> (manual)</span>}
+            <button className="remove-account-btn" title="Remove" onClick={() => removeAccount(acc.accountId)}>×</button>
+          </span>
         ))}
-        <a href="/api/auth/start" className="connect-account-btn">+ Connect account</a>
+        <form
+          className="add-account-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            addManualAccount();
+          }}
+        >
+          <input
+            type="text"
+            placeholder="Add account by name (e.g. Ahmed)"
+            value={newAccountName}
+            onChange={(e) => setNewAccountName(e.target.value)}
+          />
+          <button type="submit">+ Add</button>
+        </form>
+        <a href="/api/auth/start" className="connect-account-btn">+ Connect real LinkedIn account</a>
       </div>
 
       <div className="toolbar">
