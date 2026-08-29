@@ -10,14 +10,25 @@ function statusClass(status) {
   return `status status-${status}`;
 }
 
-// Fixed palette of distinct, legible (dark-text-on-light-background) colors,
-// deterministically assigned per account so the same account always gets
-// the same color regardless of list order.
+// Fixed palette of distinct, legible (dark-text-on-light-background) colors -
+// used as a fallback for any account not explicitly assigned a color below.
 const ACCOUNT_COLOR_PALETTE = [
   { bg: "#dbeafe", text: "#1e40af" }, // blue
   { bg: "#dcfce7", text: "#166534" }, // green
   { bg: "#fef3c7", text: "#92400e" }, // yellow
 ];
+
+const BLUE = { bg: "#dbeafe", text: "#1e40af" };
+const GREEN = { bg: "#dcfce7", text: "#166534" };
+const YELLOW = { bg: "#fef3c7", text: "#92400e" };
+
+// Explicit color assignments by account display name (case-insensitive).
+// Anything not listed here falls back to a hash-based pick from the palette.
+const MANUAL_COLOR_OVERRIDES = {
+  "clouddevfusion": YELLOW,
+  "mouad": GREEN,
+  "ahmed": BLUE,
+};
 
 const STATUS_DOT_COLOR = {
   proposed: "#ca8a04",
@@ -29,8 +40,10 @@ const STATUS_DOT_COLOR = {
 
 const UNASSIGNED_COLOR = { bg: "#e5e7eb", text: "#4b5563" };
 
-function colorForAccount(accountId) {
+function colorForAccount(accountId, displayName) {
   if (!accountId) return UNASSIGNED_COLOR;
+  const key = (displayName || "").trim().toLowerCase();
+  if (MANUAL_COLOR_OVERRIDES[key]) return MANUAL_COLOR_OVERRIDES[key];
   let hash = 0;
   for (let i = 0; i < accountId.length; i++) {
     hash = (hash * 31 + accountId.charCodeAt(i)) >>> 0;
@@ -404,7 +417,8 @@ export default function App() {
                   </button>
                 </div>
                 {dayPosts.map((post) => {
-                  const color = colorForAccount(post.targetAccountId);
+                  const assignedAcc = accounts.find((a) => a.accountId === post.targetAccountId);
+                  const color = colorForAccount(post.targetAccountId, assignedAcc?.displayName);
                   return (
                     <button
                       key={post.id}
@@ -595,7 +609,7 @@ export default function App() {
               Unassigned
             </span>
             {accounts.map((acc) => {
-              const color = colorForAccount(acc.accountId);
+              const color = colorForAccount(acc.accountId, acc.displayName);
               return (
                 <span key={acc.accountId} className="calendar-legend-item">
                   <span className="legend-swatch" style={{ backgroundColor: color.bg }} />
