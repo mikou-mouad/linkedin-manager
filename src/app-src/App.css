@@ -436,12 +436,12 @@ textarea {
 
 .rationale-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
   margin: 4px 0;
   background: #f6f7f9;
   border-radius: 6px;
-  padding: 4px 10px;
+  padding: 6px 10px;
 }
 
 .rationale-label {
@@ -449,6 +449,7 @@ textarea {
   color: #444;
   font-size: 0.75rem;
   white-space: nowrap;
+  padding-top: 2px;
 }
 
 .rationale-input {
@@ -458,6 +459,11 @@ textarea {
   font-size: 0.75rem;
   color: #555;
   padding: 2px 0;
+  font-family: inherit;
+  line-height: 1.4;
+  resize: none;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .rationale-input:focus {

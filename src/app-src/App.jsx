@@ -59,6 +59,7 @@ function firstWeekdayOffset(yearMonth) {
 
 function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel, onGenerateContent, generatingContent, onGenerateImage, generatingImage, accounts }) {
   const textareaRef = useRef(null);
+  const rationaleRef = useRef(null);
   const assignedAccount = accounts.find((a) => a.accountId === post.targetAccountId) || null;
 
   useEffect(() => {
@@ -68,6 +69,14 @@ function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel, onG
       el.style.height = `${el.scrollHeight}px`;
     }
   }, [post.copyText]);
+
+  useEffect(() => {
+    const el = rationaleRef.current;
+    if (el) {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  }, [post.rationale]);
 
   return (
     <div className="post-card">
@@ -89,10 +98,12 @@ function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel, onG
         </div>
         <div className="rationale-row">
           <span className="rationale-label">Why this topic:</span>
-          <input
+          <textarea
+            ref={rationaleRef}
             className="rationale-input"
             value={post.rationale || ""}
             placeholder="Optional notes on why this topic/angle"
+            rows={1}
             onChange={(e) => onUpdateField(post, "rationale", e.target.value)}
           />
         </div>
