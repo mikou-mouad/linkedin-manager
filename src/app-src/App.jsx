@@ -16,14 +16,7 @@ function statusClass(status) {
 const ACCOUNT_COLOR_PALETTE = [
   { bg: "#dbeafe", text: "#1e40af" }, // blue
   { bg: "#dcfce7", text: "#166534" }, // green
-  { bg: "#fef3c7", text: "#92400e" }, // amber
-  { bg: "#fce7f3", text: "#9d174d" }, // pink
-  { bg: "#ede9fe", text: "#5b21b6" }, // purple
-  { bg: "#ffedd5", text: "#9a3412" }, // orange
-  { bg: "#cffafe", text: "#155e75" }, // cyan
-  { bg: "#fee2e2", text: "#991b1b" }, // red
-  { bg: "#e0e7ff", text: "#3730a3" }, // indigo
-  { bg: "#d1fae5", text: "#065f46" }, // teal
+  { bg: "#fef3c7", text: "#92400e" }, // yellow
 ];
 
 const STATUS_DOT_COLOR = {
