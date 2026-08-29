@@ -434,18 +434,35 @@ textarea {
   color: #666;
 }
 
-.rationale-box {
-  font-size: 0.75rem;
-  color: #666;
+.rationale-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
   background: #f6f7f9;
   border-radius: 6px;
-  padding: 6px 10px;
-  margin: 4px 0;
+  padding: 4px 10px;
 }
 
 .rationale-label {
   font-weight: 600;
   color: #444;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.rationale-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 0.75rem;
+  color: #555;
+  padding: 2px 0;
+}
+
+.rationale-input:focus {
+  outline: none;
+  color: #1a1a1a;
 }
 
 .notice {

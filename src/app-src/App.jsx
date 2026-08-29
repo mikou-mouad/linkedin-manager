@@ -52,11 +52,15 @@ function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel, onG
           />
           {post.funnelStage && <span className="funnel-tag">{post.funnelStage}</span>}
         </div>
-        {post.rationale && (
-          <div className="rationale-box">
-            <span className="rationale-label">Why this topic:</span> {post.rationale}
-          </div>
-        )}
+        <div className="rationale-row">
+          <span className="rationale-label">Why this topic:</span>
+          <input
+            className="rationale-input"
+            value={post.rationale || ""}
+            placeholder="Optional notes on why this topic/angle"
+            onChange={(e) => onUpdateField(post, "rationale", e.target.value)}
+          />
+        </div>
         <textarea
           ref={textareaRef}
           value={post.copyText}
