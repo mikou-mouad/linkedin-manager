@@ -268,6 +268,16 @@ textarea {
   cursor: not-allowed;
 }
 
+.delete-btn {
+  margin-left: auto;
+  border-color: #fca5a5 !important;
+  color: #991b1b;
+}
+
+.delete-btn:hover {
+  background: #fef2f2 !important;
+}
+
 .error-msg {
   margin-top: 8px;
   font-size: 0.8rem;

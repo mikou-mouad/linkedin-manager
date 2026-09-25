@@ -49,7 +49,7 @@ function firstWeekdayOffset(yearMonth) {
   return (jsDay + 6) % 7;
 }
 
-function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel, onGenerateContent, generatingContent, onGenerateImage, generatingImage, accounts }) {
+function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel, onDelete, onGenerateContent, generatingContent, onGenerateImage, generatingImage, accounts }) {
   const textareaRef = useRef(null);
   const rationaleRef = useRef(null);
   const assignedAccount = accounts.find((a) => a.accountId === post.targetAccountId) || null;
@@ -154,6 +154,9 @@ function PostCard({ post, onUpdateField, onUploadImage, onPublish, onCancel, onG
           </button>
           <button disabled={post.status !== "scheduled"} onClick={() => onCancel(post)}>
             Cancel
+          </button>
+          <button className="delete-btn" onClick={() => onDelete(post)}>
+            Delete
           </button>
         </div>
         {post.status === "failed" && post.errorMessage && <p className="error-msg">{post.errorMessage}</p>}
@@ -321,6 +324,15 @@ export default function App() {
     await fetch(`${API_BASE_URL}/posts/${post.scheduledDate.slice(0, 7)}/${post.id}/cancel`, {
       method: "POST",
     });
+    loadPosts();
+  }
+
+  async function deletePost(post) {
+    if (!window.confirm(`Delete "${post.topic || "this post"}"? This can't be undone.`)) return;
+    await fetch(`${API_BASE_URL}/posts/${post.scheduledDate.slice(0, 7)}/${post.id}`, {
+      method: "DELETE",
+    });
+    setSelectedPostId(null);
     loadPosts();
   }
 
@@ -624,6 +636,7 @@ export default function App() {
                 onUploadImage={uploadImage}
                 onPublish={publishNow}
                 onCancel={cancelPost}
+                onDelete={deletePost}
                 onGenerateContent={generateContent}
                 generatingContent={generatingContentFor === selectedPost.id}
                 onGenerateImage={generateImage}
@@ -644,6 +657,7 @@ export default function App() {
             onUploadImage={uploadImage}
             onPublish={publishNow}
             onCancel={cancelPost}
+            onDelete={deletePost}
             onGenerateContent={generateContent}
             generatingContent={generatingContentFor === post.id}
             onGenerateImage={generateImage}
